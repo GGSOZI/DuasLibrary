@@ -259,7 +259,7 @@ local out = {}
 if type(list) == "table" then
 for _, e in ipairs(list) do
 if type(e) == "table" and type(e.name) == "string" and type(e.code) == "string" then
-out[#out + 1] = {name = e.name, code = e.code}
+out[#out + 1] = {name = e.name, code = e.code, by = type(e.by) == "string" and e.by:sub(1, 20) or nil}
 end
 end
 end
@@ -604,6 +604,7 @@ writeLocal()
 onFeedChanged()
 end
 notify("Published online", "Everyone with the script now sees it", nil, 3)
+task.delay(1.5, function() if L.ping then L.ping("feed") end end)
 end)
 end
 local schedulePublish = debounce(1.5, function() publishNow(false) end)
@@ -620,6 +621,7 @@ local ITEMS = {
 {name = L.FAVP, icon = "❤️"},
 {name = ADD_PAGE, icon = "➕"},
 {name = "ScriptBlox scripts", icon = "🌐", custom = true, sub = "Live from scriptblox.com, nothing saved on your device"},
+{name = "Global chat", icon = "💬", custom = true, sub = "Live chat with everyone using Dua's Library"},
 {name = "Universal", icon = "⚡", custom = true, sub = "Speed, jump, fly and more"},
 {name = "Info", icon = "ℹ️", custom = true, sub = "What you should know about this library"},
 }
@@ -1214,16 +1216,12 @@ fit(nm, 14, 8)
 if L.hasNote(entry) then
 text(tile, {Position = UO(32, 15), Size = UO(14, 14), Text = "📝", TextSize = 12, ZIndex = 24})
 end
-if isShared then
+local byName = entry.comm and entry.by or (isShared and (entry.by or "admin")) or nil
+if byName then
 text(tile, {
-Position = UO(10, 4), Size = UO(44, 9), Text = "SHARED", TextSize = 8,
-Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextTransparency = 0.2, ZIndex = 23,
-})
-end
-if entry.comm then
-text(tile, {
-Position = UO(10, 4), Size = UO(58, 9), Text = "by " .. entry.by, TextSize = 8,
-Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextTransparency = 0.2, ZIndex = 23,
+Position = UO(48, 26), Size = U2(1, -56, 0, 12), Text = "Shared by " .. byName, TextSize = 9,
+Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
+TextTransparency = 0.1, ZIndex = 23,
 })
 end
 local heart = new("TextButton", {
@@ -1312,7 +1310,7 @@ local nm = nameBox.Text:match("^%s*(.-)%s*$"):sub(1, 40)
 local code = codeBox.Text
 if nm == "" then return flashRed(nameStroke) end
 if code:match("^%s*$") then return flashRed(codeStroke) end
-local entry = {name = nm, code = normalizeCode(code)}
+local entry = {name = nm, code = normalizeCode(code), by = (modalPage == ADD_PAGE) and (verName or LP.Name) or nil}
 local toShared = modalPage ~= ADD_PAGE or S.shareAdd
 if modalPage == ADD_PAGE and S.shareAdd and not isAdmin and L.commPush(nm, entry.code) then
 modal.Visible = false
@@ -2048,7 +2046,7 @@ do
 local BOARD_PAT = "^https://jsonblob%.com/api/jsonBlob/[%w%-]+$"
 local ui = pageUI[L.FAVP]
 function L.boardOf()
-local u = isAdmin and online.board or online.remoteBoard
+local u = (isAdmin and online.board) or online.remoteBoard
 return type(u) == "string" and u:match(BOARD_PAT) and u or nil
 end
 local function call(method, url, body)
@@ -2110,6 +2108,7 @@ out[#out + 1] = {name = x.n:sub(1, 40), code = x.c, comm = true, by = tostring(x
 end
 end
 L.comm = out
+if L.chat then L.chat.muted = type(d.muted) == "table" and d.muted or {} end
 renderPage(ADD_PAGE)
 end)
 end
@@ -2135,6 +2134,7 @@ if L.bWrite(url, d) then
 notify("Shared", "Everyone can see it on Share script & Find script", nil, 3)
 L.commBusy = false
 L.commPull()
+if L.ping then L.ping("board") end
 else
 notify("Couldn't share", "The board refused it. Try again", nil, 3)
 end
@@ -2150,7 +2150,7 @@ if not d or type(d.shared) ~= "table" then return end
 for i, x in ipairs(d.shared) do
 if tostring(x.u) == e.uid and tonumber(x.t) == e.t and tostring(x.n):sub(1, 40) == e.name then table.remove(d.shared, i) break end
 end
-if L.bWrite(url, d) then L.commBusy = false; L.commPull() end
+if L.bWrite(url, d) then L.commBusy = false; L.commPull(); if L.ping then L.ping("board") end end
 end)
 end
 function L.syncFavs()
@@ -2301,6 +2301,15 @@ Text = "No favorites board yet. Create it once: players' favorite script names t
 })
 local b = button(row(32), 0, 0, 200, 30, "Create favorites board", Color3.fromRGB(34, 160, 72), 0, 22)
 b.MouseButton1Click:Connect(function() L.makeBoard() end)
+text(row(34), {
+Size = UDim2.fromScale(1, 1), Font = Enum.Font.Nunito, TextSize = 11, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left,
+TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 22, TextTransparency = 0.3,
+Text = "If that fails: open jsonblob.com, paste {\"v\":1,\"users\":{}} in the box, press Save, and paste the page link here.",
+})
+local lr = row(34)
+local lb = inputBox(lr, 0, 2, 250, 30, "https://jsonblob.com/...", false, 22)
+local ub = button(lr, 258, 2, 90, 30, "Use link", Color3.fromRGB(34, 160, 72), 0, 22)
+ub.MouseButton1Click:Connect(function() L.useBoard(lb.Text) end)
 return
 end
 local d = L.boardCache
@@ -2351,15 +2360,25 @@ task.spawn(function()
 local res = call("POST", "https://jsonblob.com/api/jsonBlob", '{"v":1,"users":{}}')
 local id
 for k, v in pairs(res and res.Headers or {}) do
-if tostring(k):lower() == "location" then id = tostring(v):match("[Jj]son[Bb]lob/([%w%-]+)") end
+local lk = tostring(k):lower()
+if lk == "location" then id = tostring(v):match("[Jj]son[Bb]lob/([%w%-]+)") end
+if not id and lk == "x-jsonblob" then id = tostring(v):match("^([%w%-]+)$") end
 end
-if not id then return notify("Favorites board", "Couldn't create it. Try again later.", nil, 3) end
+if not id then
+local why = not res and "no response (does your executor allow requests?)" or ("HTTP " .. tostring(res.StatusCode) .. (res.Headers and "" or ", no headers"))
+return notify("Couldn't create the board", why .. ". Use the link box below instead.", nil, 6)
+end
+L.useBoard(id)
+end)
+end
+function L.useBoard(id)
+id = tostring(id):match("jsonblob%.com/api/jsonBlob/([%w%-]+)") or tostring(id):match("jsonblob%.com/([%w%-]+)") or tostring(id):match("^([%w%-]+)$")
+if not id or #id < 8 then return notify("Board link", "That doesn't look like a jsonblob link", nil, 3) end
 online.board = "https://jsonblob.com/api/jsonBlob/" .. id
 saveOnline()
-if readToken() then publishNow(true) else notify("Board created", "Save a GitHub token and publish so players use it", nil, 4) end
+if readToken() then publishNow(true) else notify("Board saved", "Save a GitHub token and publish so players use it", nil, 4) end
 L.boardCache, L.topCache = {v = 1, users = {}}, {}
 L.buildCheck()
-end)
 end
 end
 renderPage(ui.current)
@@ -3183,13 +3202,213 @@ win.BackgroundTransparency = minimized and 1 or 0
 L.miniImg.Visible = minimized and L.iconOK == true
 minBtn.Text = minimized and (L.iconOK and "" or "+") or "-"
 end)
+do
+local CP = "Global chat"
+local host = pages[CP]
+local BASE = "https://ntfy.sh/duaslib-463b64284260828291"
+local C = {seen = {}, lines = {}, order = 0, last = tostring(os.time() - 1800), busy = false, backoff = 0, primed = false, lastSend = 0, lastToast = 0, muted = {}}
+L.chat = C
+local MYID = tostring(LP.UserId)
+local function esc(x) return (tostring(x):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")) end
+local function uid() return string.format("%x%x%x", os.time(), math.random(0, 65535), math.random(0, 65535)) end
+local scroll = new("ScrollingFrame", {
+Position = UO(10, 46), Size = U2(1, -20, 1, -118), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.55,
+BorderSizePixel = 0, ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 22,
+}, host)
+round(scroll, 8)
+new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
+new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6)}, scroll)
+local empty = text(host, {Position = UO(10, 120), Size = U2(1, -20, 0, 20), Font = Enum.Font.Nunito, TextSize = 13, Text = "No messages yet. Say hi!", TextTransparency = 0.4, ZIndex = 23})
+text(host, {
+AnchorPoint = V2(0, 1), Position = U2(0, 10, 1, -50), Size = U2(1, -20, 0, 14), Font = Enum.Font.Nunito, TextSize = 10, TextTransparency = 0.4,
+Text = "Live for everyone using Dua's Library. Names and messages are not verified.", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22,
+})
+local box = inputBox(host, 0, 0, 10, 34, "Say something...", false, 23)
+box.AnchorPoint, box.Position, box.Size = V2(0, 1), U2(0, 10, 1, -10), U2(1, -96, 0, 34)
+local send = button(host, 0, 0, 76, 34, "Send", Color3.fromRGB(34, 160, 72), 0, 23)
+send.AnchorPoint, send.Position = V2(1, 1), U2(1, -10, 1, -10)
+local function colorOf(name)
+local h = 7
+for i = 1, #name do h = (h * 31 + name:byte(i)) % 360 end
+local c = Color3.fromHSV(h / 360, 0.45, 1)
+return string.format("rgb(%d,%d,%d)", math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
+end
+function C.addLine(p)
+empty.Visible = false
+C.order = C.order + 1
+local mine = p.u == MYID
+local ln = new("TextButton", {
+LayoutOrder = C.order, Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0,
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 13, TextColor3 = WHITE, TextWrapped = true, RichText = true,
+TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 23,
+Text = '<b><font color="' .. (mine and "rgb(255,215,90)" or colorOf(tostring(p.n))) .. '">' .. esc(tostring(p.n):sub(1, 20)) .. "</font></b>  " .. esc(tostring(p.t):sub(1, 200)),
+}, scroll)
+C.lines[#C.lines + 1] = ln
+if #C.lines > 80 then table.remove(C.lines, 1):Destroy() end
+if isAdmin and not mine then
+ln.MouseButton1Click:Connect(function()
+askConfirm("Mute " .. tostring(p.n):sub(1, 20) .. " in the chat for everyone?", function() L.chatMute(tostring(p.u), tostring(p.n)) end)
+end)
+end
+task.defer(function()
+pcall(function() scroll.CanvasPosition = V2(0, math.max(0, scroll.AbsoluteCanvasSize.Y)) end)
+end)
+end
+function C.handle(p, mine, primed)
+if type(p.i) ~= "string" or C.seen[p.i] then return end
+C.seen[p.i] = true
+if p.k == "m" and type(p.t) == "string" and type(p.n) == "string" then
+if C.muted[tostring(p.u)] and not mine then return end
+C.addLine(p)
+if not mine and primed and selected ~= CP and os.clock() - C.lastToast > 20 then
+C.lastToast = os.clock()
+notify("💬 " .. p.n:sub(1, 20), p.t:sub(1, 70), nil, 3)
+end
+elseif p.k == "p" and primed and tostring(p.u) ~= MYID then
+task.delay(math.random() * 3, function()
+if p.w == "feed" and not isAdmin then refreshOnline(true) elseif p.w == "board" and L.commPull then L.commPull() end
+end)
+end
+end
+local function get(url)
+local ok, body = pcall(function() return game:HttpGet(url) end)
+if ok and type(body) == "string" then return body end
+if not ok and tostring(body):find("429", 1, true) then return nil, 429 end
+if httpReq then
+local ok2, res = pcall(httpReq, {Url = url, Method = "GET"})
+if ok2 and type(res) == "table" then
+if tonumber(res.StatusCode) == 429 then return nil, 429 end
+if type(res.Body) == "string" and (tonumber(res.StatusCode) or 200) < 400 then return res.Body end
+end
+end
+end
+function C.poll()
+if C.busy then return end
+C.busy = true
+if C.mode == "board" then
+local url = L.boardOf()
+local d = url and L.bRead(url)
+C.busy = false
+if d and type(d.chat) == "table" then
+for _, p in ipairs(d.chat) do if type(p) == "table" then C.handle(p, false, C.primed) end end
+end
+if d then C.primed = true end
+return
+end
+local body, code = get(BASE .. "/json?poll=1&since=" .. C.last)
+C.busy = false
+if not body then
+if code == 429 then C.backoff = os.clock() + 20
+else
+C.fail = (C.fail or 0) + 1
+if C.fail >= 3 and L.boardOf() then C.mode = "board" end
+end
+return
+end
+C.fail = 0
+local newest = tonumber(C.last) or 0
+for line in body:gmatch("[^\n]+") do
+local ok, ev = pcall(function() return HttpService:JSONDecode(line) end)
+if ok and type(ev) == "table" and ev.event == "message" then
+newest = math.max(newest, tonumber(ev.time) or 0)
+local ok2, p = pcall(function() return HttpService:JSONDecode(tostring(ev.message)) end)
+if ok2 and type(p) == "table" then C.handle(p, false, C.primed) end
+end
+end
+C.last = tostring(newest)
+C.primed = true
+end
+function C.publish(p)
+if C.mode == "board" then
+if p.k ~= "m" then return end
+local url = L.boardOf()
+if not url then return end
+task.spawn(function()
+for _ = 1, 3 do
+local d = L.bRead(url)
+if d then
+if type(d.chat) ~= "table" then d.chat = {} end
+table.insert(d.chat, p)
+while #d.chat > 40 do table.remove(d.chat, 1) end
+if L.bWrite(url, d) then return end
+end
+task.wait(0.4)
+end
+end)
+return
+end
+task.spawn(function()
+local body = HttpService:JSONEncode(p)
+local sent = false
+if httpReq then
+local ok, res = pcall(httpReq, {Url = BASE, Method = "POST", Headers = {["Content-Type"] = "text/plain"}, Body = body})
+sent = ok and type(res) == "table" and (tonumber(res.StatusCode) or 200) < 300
+end
+if not sent then pcall(function() game:HttpGet(BASE .. "/publish?message=" .. HttpService:UrlEncode(body)) end) end
+end)
+end
+function L.ping(w) C.publish({k = "p", i = uid(), u = MYID, w = w}) end
+function C.send(msg)
+msg = msg:gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 200)
+if msg == "" then return end
+if C.muted[MYID] then return notify("Muted", "An admin muted you in the chat", nil, 3) end
+if os.clock() - C.lastSend < 1.2 then return notify("Slow down", "One message every second or so", nil, 2) end
+C.lastSend = os.clock()
+local p = {k = "m", i = uid(), u = MYID, n = LP.Name, t = msg}
+C.handle(p, true)
+C.publish(p)
+end
+local function submit() local t = box.Text; box.Text = ""; C.send(t) end
+send.MouseButton1Click:Connect(submit)
+box.FocusLost:Connect(function(enter) if enter then submit() end end)
+local function boardEdit(fn)
+local url = L.boardOf()
+if not url then return notify("Chat", "No board is set up yet", nil, 3) end
+task.spawn(function()
+local d = L.bRead(url)
+if not d then return notify("Chat", "Couldn't reach the board", nil, 3) end
+fn(d)
+if L.bWrite(url, d) then
+L.commBusy = false
+if L.commPull then L.commPull() end
+L.ping("board")
+end
+end)
+end
+function L.chatMute(u, n)
+if isAdmin and not adminOk() then return end
+C.muted[u] = n
+boardEdit(function(d) if type(d.muted) ~= "table" then d.muted = {} end d.muted[u] = n end)
+notify("Muted", n, nil, 2)
+end
+if isAdmin then
+local um = button(host, 0, 0, 92, 26, "Unmute all", Color3.fromRGB(58, 58, 78), 0, 23)
+um.AnchorPoint, um.Position, um.TextSize = V2(1, 0), U2(1, -10, 0, 7), 12
+um.MouseButton1Click:Connect(function()
+if not adminOk() then return end
+C.muted = {}
+boardEdit(function(d) d.muted = {} end)
+notify("Chat", "Everyone is unmuted", nil, 2)
+end)
+end
+task.spawn(function()
+while sg.Parent do
+C.poll()
+task.wait(os.clock() < C.backoff and 10 or (C.mode == "board" and 5 or (selected == CP and 4 or 6)))
+end
+end)
+task.spawn(function()
+task.wait(10)
+if isAdmin and L.owner and L.owner() and L.makeBoard and not online.board and not online.remoteBoard then L.makeBoard() end
+end)
+end
 applyAll()
 selectItem(ITEMS[1].name)
 playSound(SND.click)
 if not isAdmin and feedUrl ~= "" then
 task.spawn(function()
 while sg.Parent do
-task.wait(180)
+task.wait(60)
 refreshOnline(true)
 end
 end)

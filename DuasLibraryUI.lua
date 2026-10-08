@@ -88,12 +88,13 @@ autoClose = true, autoCloseDelay = 2,
 soundOn = true, seenNotice = "", seenMsg = 0, rmDone = 0, favSig = "", reopen = true, reloadUrl = "", antiAfk = false, fullbright = false, noFog = false, esp = false, clockTime = 14, maxZoom = 128,
 font = "Nunito", style = "Solid", bold = true,
 walkSpeed = 16, jumpPower = 50, gravity = 196.2, fov = 70, flySpeed = 60, infJump = false, noclip = false, fly = false,
+winW = 560, winH = 350,
 shareAdd = true,
 }
 local LIMITS = {
 hue = {0, 1}, sat = {0.05, 1}, winTrans = {0, 0.6},
 particleCount = {0, PARTICLE_MAX}, speed = {0.2, 3}, autoCloseDelay = {1, 6},
-walkSpeed = {0, 300}, jumpPower = {0, 300}, gravity = {0, 400}, fov = {30, 120}, flySpeed = {10, 300}, clockTime = {0, 24}, maxZoom = {10, 1000},
+winW = {380, 1100}, winH = {260, 800}, walkSpeed = {0, 300}, jumpPower = {0, 300}, gravity = {0, 400}, fov = {30, 120}, flySpeed = {10, 300}, clockTime = {0, 24}, maxZoom = {10, 1000},
 }
 local WHITE = Color3.new(1, 1, 1)
 local RED = Color3.fromRGB(210, 70, 95)
@@ -179,6 +180,7 @@ local function writeJson(file, data)
 if canSave then pcall(function() writefile(file, HttpService:JSONEncode(data)) end) end
 end
 L.lastSaved = {}
+L.cellH = setmetatable({}, {__mode = "k"})
 function L.packPages(pages)
 local codes, idx, out = {}, {}, {}
 for name, list in pairs(pages) do
@@ -599,7 +601,7 @@ if #t > 0 then return t end
 end
 end
 local function saveOnline() writeJson(FILE.ONLINE, {gistId = online.gistId, feedUrl = feedUrl, notice = online.notice, webhook = online.webhook, board = online.board, messages = online.messages}) end
-local function feedJson() return HttpService:JSONEncode({v = 1, pages = adminPages, notice = online.notice, webhook = online.webhook, board = online.board, admins = adminList, messages = online.messages}) end
+local function feedJson() return HttpService:JSONEncode({v = 1, pages = adminPages, notice = online.notice, webhook = online.webhook, board = online.board or online.remoteBoard or L.DEFAULT_BOARD, admins = adminList, messages = online.messages}) end
 local function gistCall(method, url, body)
 local token = readToken()
 if not httpReq then return nil, "this executor has no request function" end
@@ -710,6 +712,7 @@ return false
 end
 return true
 end
+SIZE = UDim2.fromOffset(S.winW, S.winH)
 local shadow = new("Frame", {
 AnchorPoint = V2(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = SIZE,
 BackgroundColor3 = Color3.fromRGB(10, 0, 25), BackgroundTransparency = 0.35,
@@ -789,6 +792,7 @@ shadowH = shadowH + (ab.Y - shadowH) * sa
 shadow.Position = U2(shadowPos.X, shadowOff.X, shadowPos.Y, shadowOff.Y)
 shadow.Size = UO(shadowW, shadowH)
 if minimized then return end
+if ab.X > 250 then layerW, layerH = ab.X - PAD * 2, ab.Y - TITLE_H - PAD * 2 end
 local count = S.particlesOn and S.particleCount or 0
 local speed = S.speed
 for i = 1, count do
@@ -955,13 +959,13 @@ local closeToken = 0
 local setOpen
 do
 local avatar = new("ImageLabel", {
-AnchorPoint = V2(0, 1), Position = U2(0, 5, 1, -7), Size = UO(26, 26), BackgroundColor3 = Color3.fromRGB(30, 30, 40),
+AnchorPoint = V2(0, 1), Position = U2(0, 5, 1, -22), Size = UO(26, 26), BackgroundColor3 = Color3.fromRGB(30, 30, 40),
 BorderSizePixel = 0, Image = "", ZIndex = 10,
 }, sidebar)
 round(avatar, 99)
 outline(avatar, 1.5, 0.2)
 local nm = text(sidebar, {
-AnchorPoint = V2(0, 1), Position = U2(0, 38, 1, -7), Size = U2(1, -44, 0, 26), Text = LP.DisplayName, TextSize = 13,
+AnchorPoint = V2(0, 1), Position = U2(0, 38, 1, -22), Size = U2(1, -44, 0, 26), Text = LP.DisplayName, TextSize = 13,
 TextXAlignment = Enum.TextXAlignment.Left, TextTransparency = 1, ZIndex = 10,
 })
 fit(nm, 13, 8)
@@ -1257,7 +1261,7 @@ end
 local byName = entry.comm and entry.by or (isShared and (entry.by or "admin")) or nil
 if byName then
 text(tile, {
-Position = UO(48, 26), Size = U2(1, -56, 0, 12), Text = "Shared by " .. byName, TextSize = 9,
+Position = UO(10, 70), Size = U2(1, -20, 0, 12), Text = "Shared by " .. byName, TextSize = 10,
 Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd,
 TextTransparency = 0.1, ZIndex = 23,
 })
@@ -1456,9 +1460,10 @@ ScrollBarThickness = 3, ScrollBarImageColor3 = WHITE,
 CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 20,
 }, page)
 L.grids[#L.grids + 1] = new("UIGridLayout", {
-CellSize = U2(0.25, -11, 0, 100), CellPadding = UO(8, 8),
+CellSize = U2(0.25, -11, 0, 112), CellPadding = UO(8, 8),
 SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Left,
 }, grid)
+L.cellH[L.grids[#L.grids]] = 112
 new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8)}, grid)
 local plusTile
 if name == ADD_PAGE or (name == L.DUA and isAdmin) then
@@ -2086,6 +2091,7 @@ rb.MouseButton1Click:Connect(function() refreshOnline(false) end)
 end
 wideButton("Reset to defaults", RED, 0.35).MouseButton1Click:Connect(function()
 for k, v in pairs(DEFAULTS) do S[k] = v end
+if L.setSize then L.setSize(DEFAULTS.winW, DEFAULTS.winH) end
 applyAll(); scheduleSave()
 end)
 do
@@ -2966,7 +2972,7 @@ if type(w) ~= "number" or w <= 0 then return end
 local cols = math.clamp(math.floor((w - 20) / 80), 2, 4)
 for i = #L.grids, 1, -1 do
 local g = L.grids[i]
-if g.Parent then g.CellSize = U2(1 / cols, -(cols * 8 + 12) / cols, 0, 100) else table.remove(L.grids, i) end
+if g.Parent then g.CellSize = U2(1 / cols, -(cols * 8 + 12) / cols, 0, L.cellH[g] or 100) else table.remove(L.grids, i) end
 end
 end
 content:GetPropertyChangedSignal("AbsoluteSize"):Connect(L.relayout)
@@ -3245,6 +3251,41 @@ end)
 end
 draggable(win, true)
 draggable(sidebar, "force")
+do
+L.grip = new("TextButton", {
+AnchorPoint = V2(0, 1), Position = U2(0, 2, 1, -2), Size = UO(22, 22), BackgroundTransparency = 1, Text = "◣", TextSize = 18,
+TextColor3 = WHITE, TextTransparency = 0.3, AutoButtonColor = false, ZIndex = 60,
+}, win)
+function L.setSize(w, h)
+local sc = sg.AbsoluteSize
+local mw = (typeof(sc) == "Vector2" and sc.X > 0) and math.max(380, sc.X - 10) or 1100
+local mh = (typeof(sc) == "Vector2" and sc.Y > 0) and math.max(260, sc.Y - 10) or 800
+w, h = math.clamp(w, 380, math.min(mw, 1100)), math.clamp(h, 260, math.min(mh, 800))
+SIZE = UO(w, h)
+S.winW, S.winH = w, h
+win.Size = SIZE
+return w, h
+end
+local sizing, rStart, rSize, rPos, rInput
+L.grip.InputBegan:Connect(function(i)
+if (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) and not minimized then
+sizing, rStart, rSize, rPos = true, i.Position, win.AbsoluteSize, win.Position
+i.Changed:Connect(function()
+if i.UserInputState == Enum.UserInputState.End then sizing = false; scheduleSave() end
+end)
+end
+end)
+L.grip.InputChanged:Connect(function(i)
+if i.UserInputType == Enum.UserInputType.MouseMovement or i.UserInputType == Enum.UserInputType.Touch then rInput = i end
+end)
+UIS.InputChanged:Connect(function(i)
+if sizing and i == rInput and not minimized then
+local d = i.Position - rStart
+local w, h = L.setSize(rSize.X - d.X, rSize.Y + d.Y)
+win.Position = U2(rPos.X.Scale, rPos.X.Offset - (w - rSize.X) / 2, rPos.Y.Scale, rPos.Y.Offset + (h - rSize.Y) / 2)
+end
+end)
+end
 draggable(minBtn)
 minBtn.MouseButton1Click:Connect(function()
 if L.moved then L.moved = false return end
@@ -3263,6 +3304,7 @@ minBtn.Size = minimized and UO(32, 32) or UO(24, 24)
 minBtn.BackgroundColor3 = minimized and Color3.new(0, 0, 0) or WHITE
 minBtn.BackgroundTransparency = minimized and 0 or 0.7
 win.BackgroundTransparency = minimized and 1 or 0
+L.grip.Visible = not minimized
 inner.Visible = not minimized
 winStroke.Enabled = not minimized
 L.miniImg.Visible = minimized and L.iconOK == true
@@ -3277,7 +3319,7 @@ L.chat = C
 local MYID = tostring(LP.UserId)
 local function esc(x) return (tostring(x):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")) end
 local function uid() return string.format("%x%x%x", os.time(), math.random(0, 65535), math.random(0, 65535)) end
-local GRAY = Color3.fromRGB(70, 70, 76)
+local GRAY = Color3.fromRGB(38, 38, 42)
 round(new("Frame", {Size = U2(1, 0, 1, 0), BackgroundColor3 = GRAY, BorderSizePixel = 0, ZIndex = 20}, host), 10)
 local scroll = new("ScrollingFrame", {
 Position = UO(10, 46), Size = U2(1, -20, 1, -118), BackgroundColor3 = GRAY, BackgroundTransparency = 0,
@@ -3289,10 +3331,12 @@ new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), P
 local empty = text(host, {Position = UO(10, 120), Size = U2(1, -20, 0, 20), Font = Enum.Font.Nunito, TextSize = 13, Text = "No messages yet. Say hi!", TextTransparency = 0.4, ZIndex = 23})
 text(host, {
 AnchorPoint = V2(0, 1), Position = U2(0, 10, 1, -50), Size = U2(1, -20, 0, 14), Font = Enum.Font.Nunito, TextSize = 10, TextTransparency = 0.4,
-Text = "Live for everyone using Dua's Library. Names and messages are not verified.", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22,
+Text = "Live for everyone using Dua's Library. Tap a name to message them privately. Nothing here is verified or secret.", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22,
 })
+local toBox = inputBox(host, 0, 0, 84, 34, "To (name)", false, 23)
+toBox.AnchorPoint, toBox.Position = V2(0, 1), U2(0, 10, 1, -10)
 local box = inputBox(host, 0, 0, 10, 34, "Say something...", false, 23)
-box.AnchorPoint, box.Position, box.Size = V2(0, 1), U2(0, 10, 1, -10), U2(1, -96, 0, 34)
+box.AnchorPoint, box.Position, box.Size = V2(0, 1), U2(0, 100, 1, -10), U2(1, -186, 0, 34)
 local send = button(host, 0, 0, 76, 34, "Send", Color3.fromRGB(34, 160, 72), 0, 23)
 send.AnchorPoint, send.Position = V2(1, 1), U2(1, -10, 1, -10)
 local function colorOf(name)
@@ -3301,22 +3345,25 @@ for i = 1, #name do h = (h * 31 + name:byte(i)) % 360 end
 local c = Color3.fromHSV(h / 360, 0.45, 1)
 return string.format("rgb(%d,%d,%d)", math.floor(c.R * 255), math.floor(c.G * 255), math.floor(c.B * 255))
 end
+C.uids = {}
 function C.addLine(p)
 empty.Visible = false
 C.order = C.order + 1
 local mine = p.u == MYID
+local tag = ""
+if type(p.to) == "string" then
+tag = '<font color="rgb(255,170,60)">[private' .. (mine and (" to " .. esc(p.to:sub(1, 20))) or "") .. "]</font> "
+end
 local ln = new("TextButton", {
 LayoutOrder = C.order, Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, BorderSizePixel = 0,
 AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 13, TextColor3 = WHITE, TextWrapped = true, RichText = true,
 TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 23,
-Text = '<b><font color="' .. (mine and "rgb(255,215,90)" or colorOf(tostring(p.n))) .. '">' .. esc(tostring(p.n):sub(1, 20)) .. "</font></b>  " .. esc(tostring(p.t):sub(1, 200)),
+Text = '<b><font color="' .. (mine and "rgb(255,215,90)" or colorOf(tostring(p.n))) .. '">' .. esc(tostring(p.n):sub(1, 20)) .. "</font></b>  " .. tag .. esc(tostring(p.t):sub(1, 200)),
 }, scroll)
 C.lines[#C.lines + 1] = ln
 if #C.lines > 80 then table.remove(C.lines, 1):Destroy() end
-if isAdmin and not mine then
-ln.MouseButton1Click:Connect(function()
-askConfirm("Mute " .. tostring(p.n):sub(1, 20) .. " in the chat for everyone?", function() L.chatMute(tostring(p.u), tostring(p.n)) end)
-end)
+if not mine then
+ln.MouseButton1Click:Connect(function() toBox.Text = tostring(p.n):sub(1, 20) end)
 end
 task.defer(function()
 pcall(function() scroll.CanvasPosition = V2(0, math.max(0, scroll.AbsoluteCanvasSize.Y)) end)
@@ -3329,8 +3376,12 @@ C.nseen = (C.nseen or 0) + 1
 if C.nseen > 600 then C.seen, C.nseen = {[p.i] = true}, 1 end
 if p.k == "m" and type(p.t) == "string" and type(p.n) == "string" then
 if C.muted[tostring(p.u)] and not mine then return end
+C.uids[tostring(p.n):lower()] = tostring(p.u)
+if type(p.to) == "string" and not mine and p.to ~= LP.Name:lower() then return end
 C.addLine(p)
-if not mine and primed and selected ~= CP and os.clock() - C.lastToast > 20 then
+if not mine and primed and type(p.to) == "string" and selected ~= CP then
+notify("🔒 " .. p.n:sub(1, 20), p.t:sub(1, 70), nil, 4)
+elseif not mine and primed and selected ~= CP and os.clock() - C.lastToast > 20 then
 C.lastToast = os.clock()
 notify("💬 " .. p.n:sub(1, 20), p.t:sub(1, 70), nil, 3)
 end
@@ -3434,10 +3485,18 @@ function L.announceLive(t) C.publish({k = "a", i = uid(), u = MYID, n = verName 
 function C.send(msg)
 msg = msg:gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 200)
 if msg == "" then return end
+local cmd = isAdmin and msg:match("^/mute%s+(%S+)")
+if cmd then
+local id = C.uids[cmd:lower()]
+if not id then return notify("Mute", "Haven't seen " .. cmd .. " in the chat", nil, 3) end
+return L.chatMute(id, cmd)
+end
 if C.muted[MYID] then return notify("Muted", "An admin muted you in the chat", nil, 3) end
 if os.clock() - C.lastSend < 1.2 then return notify("Slow down", "One message every second or so", nil, 2) end
 C.lastSend = os.clock()
 local p = {k = "m", i = uid(), u = MYID, n = LP.Name, t = msg}
+local to = toBox.Text:match("^%s*(.-)%s*$"):lower()
+if to ~= "" then p.to = to:sub(1, 20) end
 C.handle(p, true)
 C.publish(p)
 end

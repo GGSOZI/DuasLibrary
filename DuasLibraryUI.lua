@@ -178,6 +178,42 @@ end
 local function writeJson(file, data)
 if canSave then pcall(function() writefile(file, HttpService:JSONEncode(data)) end) end
 end
+L.lastSaved = {}
+function L.packPages(pages)
+local codes, idx, out = {}, {}, {}
+for name, list in pairs(pages) do
+local o = {}
+for _, e in ipairs(list) do
+local i = idx[e.code]
+if not i then i = #codes + 1; codes[i] = e.code; idx[e.code] = i end
+o[#o + 1] = {e.name, i, e.by}
+end
+out[name] = o
+end
+return {c = codes, p = out}
+end
+function L.unpackPages(data)
+if type(data) ~= "table" or type(data.c) ~= "table" or type(data.p) ~= "table" then return data end
+local pages = {}
+for name, list in pairs(data.p) do
+local o = {}
+if type(list) == "table" then
+for _, t in ipairs(list) do
+local code = type(t) == "table" and data.c[tonumber(t[2]) or 0]
+if type(code) == "string" and type(t[1]) == "string" then o[#o + 1] = {name = t[1], code = code, by = t[3]} end
+end
+end
+pages[name] = o
+end
+return pages
+end
+function L.saveIfChanged(file, data)
+if not canSave then return end
+local ok, str = pcall(function() return HttpService:JSONEncode(data) end)
+if not ok or L.lastSaved[file] == str then return end
+L.lastSaved[file] = str
+pcall(writefile, file, str)
+end
 function L.note(t, msg)
 if L.nolog[t] then return end
 table.insert(L.log, 1, {t = tostring(t), m = tostring(msg), at = os.date("%H:%M")})
@@ -329,10 +365,10 @@ if not feedDone then
 task.spawn(function()
 feedPages = fetchFeed(feedUrl)
 if feedPages then
-writeJson(FILE.FEED, {pages = feedPages})
+L.saveIfChanged(FILE.FEED, {pages = L.packPages(feedPages)})
 else
 local c = readJson(FILE.FEED)
-if c and type(c.pages) == "table" then feedPages = cleanPages(c.pages) end
+if c and type(c.pages) == "table" then feedPages = cleanPages(L.unpackPages(c.pages)) end
 end
 feedDone = true
 end)
@@ -377,6 +413,7 @@ local n = online.remote
 if isAdmin or not n or n.id == S.seenNotice then return end
 S.seenNotice = n.id
 scheduleSave()
+if n.text == L.lastLive then return end
 L.banner(n.from or "DuaKNo", n.text)
 end
 function L.banner(from, msg)
@@ -408,6 +445,7 @@ gui:Destroy()
 end)
 end
 local localAdmin = readJson(FILE.ADMIN)
+if localAdmin then localAdmin.pages = L.unpackPages(localAdmin.pages) end
 local adminList = rootAdmins
 if isAdmin and localAdmin then
 local l = cleanNames(localAdmin.admins)
@@ -537,7 +575,7 @@ end
 end
 end
 function writeLocal()
-writeJson(FILE.ADMIN, {admins = adminList, pages = adminPages, base = embeddedHash})
+L.saveIfChanged(FILE.ADMIN, {admins = adminList, pages = L.packPages(adminPages), base = embeddedHash})
 if selfFile then
 pcall(function()
 local src = readfile(selfFile)
@@ -1319,7 +1357,13 @@ end
 if toShared then
 if isAdmin and not adminOk() then return end
 table.insert(modalPage == ADD_PAGE and adminPages[ADD_PAGE] or entriesOf[modalPage], entry)
+if isAdmin then
+local fl, dup = adminPages[L.FAVD], false
+for _, x in ipairs(fl) do if x.name == entry.name and x.code == entry.code then dup = true end end
+if not dup then table.insert(fl, {name = entry.name, code = entry.code, by = entry.by}) end
+end
 syncAdmin()
+renderPage(L.FAVD)
 if selfFile then
 notify("Saved in script", selfFile)
 else
@@ -1505,7 +1549,7 @@ if not fp then
 if not quiet then notify("Online scripts", "Couldn't reach the list", nil, 2) end
 return
 end
-writeJson(FILE.FEED, {pages = fp})
+L.saveIfChanged(FILE.FEED, {pages = L.packPages(fp)})
 fp = migrate(fp)
 for name, list in pairs(adminPages) do
 if name == ADD_PAGE then
@@ -2009,7 +2053,9 @@ local ok, id = pcall(Players.GetUserIdFromNameAsync, Players, who)
 if not ok then return notify("Message", "No player called " .. who) end
 to = tostring(id)
 end
-table.insert(online.messages, {id = tostring(os.time()), to = to, toName = to ~= "all" and who or nil, from = verName or LP.Name, text = msg:sub(1, 140)})
+local nid = os.time()
+for _, m in ipairs(online.messages) do nid = math.max(nid, (tonumber(m.id) or 0) + 1) end
+table.insert(online.messages, {id = tostring(nid), to = to, toName = to ~= "all" and who or nil, from = verName or LP.Name, text = msg:sub(1, 140)})
 while #online.messages > 40 do table.remove(online.messages, 1) end
 saveOnline(); box.Text = ""
 notify("Message", "Sent to " .. who, nil, 3)
@@ -2028,7 +2074,7 @@ if not adminOk() then return end
 online.notice = t ~= "" and {text = t:sub(1, 140), id = tostring(os.time()), from = verName or LP.Name} or nil
 saveOnline()
 box.Text = ""
-if t ~= "" then L.banner(verName or LP.Name, t) else notify("Announcement", "Cleared", nil, 3) end
+if t ~= "" then L.banner(verName or LP.Name, t); if L.announceLive then L.announceLive(t:sub(1, 140)) end else notify("Announcement", "Cleared", nil, 3) end
 if readToken() then publishNow(true) else notify("Not published", "Save a GitHub token first", nil, 3) end
 end)
 sPage = L.settingsHost
@@ -2044,9 +2090,10 @@ applyAll(); scheduleSave()
 end)
 do
 local BOARD_PAT = "^https://jsonblob%.com/api/jsonBlob/[%w%-]+$"
+L.DEFAULT_BOARD = "https://jsonblob.com/api/jsonBlob/01a1139c-e159-7461-9c4e-5979e11d36b3"
 local ui = pageUI[L.FAVP]
 function L.boardOf()
-local u = (isAdmin and online.board) or online.remoteBoard
+local u = (isAdmin and online.board) or online.remoteBoard or L.DEFAULT_BOARD
 return type(u) == "string" and u:match(BOARD_PAT) and u or nil
 end
 local function call(method, url, body)
@@ -2107,8 +2154,12 @@ if type(x) == "table" and type(x.n) == "string" and type(x.c) == "string" then
 out[#out + 1] = {name = x.n:sub(1, 40), code = x.c, comm = true, by = tostring(x.a or "?"):sub(1, 20), uid = tostring(x.u or ""), t = tonumber(x.t) or 0}
 end
 end
-L.comm = out
 if L.chat then L.chat.muted = type(d.muted) == "table" and d.muted or {} end
+local sig = {}
+for _, e in ipairs(out) do sig[#sig + 1] = e.uid .. e.t .. e.name .. #e.code end
+sig = table.concat(sig, "|")
+if sig == L.commSig then return end
+L.commSig, L.comm = sig, out
 renderPage(ADD_PAGE)
 end)
 end
@@ -2167,7 +2218,11 @@ local d = L.bRead(url)
 local done = false
 if d then
 local uid = tostring(LP.UserId)
-d.users[uid] = #names > 0 and {n = LP.Name, f = names, t = os.time()} or nil
+local codes, used = {}, 0
+for _, e in ipairs(L.favs) do
+if type(e.code) == "string" and #e.code <= 3000 and used + #e.code <= 30000 then codes[e.name:sub(1, 60)] = e.code; used = used + #e.code end
+end
+d.users[uid] = #names > 0 and {n = LP.Name, f = names, fc = codes, t = os.time()} or nil
 local cnt, oldest, ot = 0, nil, math.huge
 for k, u in pairs(d.users) do
 cnt = cnt + 1
@@ -2337,7 +2392,16 @@ if type(fav) == "string" then
 local f = row(26)
 f.BackgroundTransparency, f.BackgroundColor3 = 0, Color3.fromRGB(10, 10, 14)
 round(f, 6)
-text(f, {Position = UO(8, 0), Size = U2(1, -84, 1, 0), Font = Enum.Font.Nunito, TextSize = 12, Text = fav, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22})
+text(f, {Position = UO(8, 0), Size = U2(1, -140, 1, 0), Font = Enum.Font.Nunito, TextSize = 12, Text = fav, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 22})
+local fcode = type(e.u.fc) == "table" and type(e.u.fc[fav]) == "string" and e.u.fc[fav] or nil
+if fcode then
+local vw = mk("TextButton", {
+AnchorPoint = V2(1, 0.5), Position = U2(1, -74, 0.5, 0), Size = UO(52, 20), BackgroundColor3 = Color3.fromRGB(58, 58, 78),
+BorderSizePixel = 0, AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 11, Text = "View", TextColor3 = WHITE, ZIndex = 23,
+}, f)
+round(vw, 5)
+vw.MouseButton1Click:Connect(function() openViewer({name = fav, code = fcode}) end)
+end
 local x = mk("TextButton", {
 AnchorPoint = V2(1, 0.5), Position = U2(1, -4, 0.5, 0), Size = UO(66, 20), BackgroundColor3 = RED, BackgroundTransparency = 0.2,
 BorderSizePixel = 0, AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 11, Text = "Remove", TextColor3 = WHITE, ZIndex = 23,
@@ -3199,6 +3263,8 @@ minBtn.Size = minimized and UO(32, 32) or UO(24, 24)
 minBtn.BackgroundColor3 = minimized and Color3.new(0, 0, 0) or WHITE
 minBtn.BackgroundTransparency = minimized and 0 or 0.7
 win.BackgroundTransparency = minimized and 1 or 0
+inner.Visible = not minimized
+winStroke.Enabled = not minimized
 L.miniImg.Visible = minimized and L.iconOK == true
 minBtn.Text = minimized and (L.iconOK and "" or "+") or "-"
 end)
@@ -3211,8 +3277,10 @@ L.chat = C
 local MYID = tostring(LP.UserId)
 local function esc(x) return (tostring(x):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")) end
 local function uid() return string.format("%x%x%x", os.time(), math.random(0, 65535), math.random(0, 65535)) end
+local GRAY = Color3.fromRGB(70, 70, 76)
+round(new("Frame", {Size = U2(1, 0, 1, 0), BackgroundColor3 = GRAY, BorderSizePixel = 0, ZIndex = 20}, host), 10)
 local scroll = new("ScrollingFrame", {
-Position = UO(10, 46), Size = U2(1, -20, 1, -118), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.55,
+Position = UO(10, 46), Size = U2(1, -20, 1, -118), BackgroundColor3 = GRAY, BackgroundTransparency = 0,
 BorderSizePixel = 0, ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 22,
 }, host)
 round(scroll, 8)
@@ -3257,12 +3325,19 @@ end
 function C.handle(p, mine, primed)
 if type(p.i) ~= "string" or C.seen[p.i] then return end
 C.seen[p.i] = true
+C.nseen = (C.nseen or 0) + 1
+if C.nseen > 600 then C.seen, C.nseen = {[p.i] = true}, 1 end
 if p.k == "m" and type(p.t) == "string" and type(p.n) == "string" then
 if C.muted[tostring(p.u)] and not mine then return end
 C.addLine(p)
 if not mine and primed and selected ~= CP and os.clock() - C.lastToast > 20 then
 C.lastToast = os.clock()
 notify("💬 " .. p.n:sub(1, 20), p.t:sub(1, 70), nil, 3)
+end
+elseif p.k == "a" and type(p.t) == "string" and type(p.n) == "string" then
+if primed and tostring(p.u) ~= MYID and L.isAdminName(p.n) then
+L.lastLive = p.t:sub(1, 140)
+L.banner(p.n, L.lastLive)
 end
 elseif p.k == "p" and primed and tostring(p.u) ~= MYID then
 task.delay(math.random() * 3, function()
@@ -3320,7 +3395,7 @@ C.primed = true
 end
 function C.publish(p)
 if C.mode == "board" then
-if p.k ~= "m" then return end
+if p.k ~= "m" and p.k ~= "a" then return end
 local url = L.boardOf()
 if not url then return end
 task.spawn(function()
@@ -3348,6 +3423,14 @@ if not sent then pcall(function() game:HttpGet(BASE .. "/publish?message=" .. Ht
 end)
 end
 function L.ping(w) C.publish({k = "p", i = uid(), u = MYID, w = w}) end
+function L.isAdminName(n)
+n = tostring(n):lower()
+for _, list in ipairs({rootAdmins, adminList}) do
+for _, a in ipairs(list) do if tostring(a):lower() == n then return true end end
+end
+return false
+end
+function L.announceLive(t) C.publish({k = "a", i = uid(), u = MYID, n = verName or LP.Name, t = t}) end
 function C.send(msg)
 msg = msg:gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 200)
 if msg == "" then return end

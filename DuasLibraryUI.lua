@@ -256,18 +256,19 @@ for _, x in ipairs(L.fonts) do if x[1] == S.font then f = x end end
 pcall(function() o.FontFace = Font.new(FAM .. f[2] .. ".json", S.bold and Enum.FontWeight.Bold or Enum.FontWeight.Regular) end)
 end
 L.styles = {
-{name = "Solid", r = 1, stroke = 1, tile = Color3.fromRGB(10, 10, 14), hot = Color3.fromRGB(34, 34, 44), tileT = 0, plus = Color3.fromRGB(34, 160, 72), plusHot = Color3.fromRGB(46, 190, 90), plusT = 0},
-{name = "Glass", r = 1.4, stroke = 0.8, tile = Color3.fromRGB(58, 58, 84), hot = Color3.fromRGB(84, 84, 116), tileT = 0, plus = Color3.fromRGB(80, 220, 130), plusHot = Color3.fromRGB(120, 255, 170), plusT = 0},
-{name = "Sharp", r = 0.15, stroke = 1.6, tile = Color3.fromRGB(22, 22, 22), hot = Color3.fromRGB(48, 48, 48), tileT = 0, plus = Color3.fromRGB(40, 150, 60), plusHot = Color3.fromRGB(60, 190, 80), plusT = 0},
-{name = "Neon", r = 0.8, stroke = 2.4, tile = Color3.fromRGB(4, 4, 8), hot = Color3.fromRGB(22, 14, 36), tileT = 0, plus = Color3.fromRGB(0, 190, 110), plusHot = Color3.fromRGB(30, 240, 150), plusT = 0},
-{name = "Soft", r = 1.8, stroke = 0.5, tile = Color3.fromRGB(46, 40, 66), hot = Color3.fromRGB(70, 60, 98), tileT = 0, plus = Color3.fromRGB(70, 190, 110), plusHot = Color3.fromRGB(90, 215, 130), plusT = 0},
-{name = "Terminal", r = 0, stroke = 1.4, tile = Color3.fromRGB(0, 14, 0), hot = Color3.fromRGB(0, 40, 6), tileT = 0, plus = Color3.fromRGB(0, 120, 30), plusHot = Color3.fromRGB(0, 160, 44), plusT = 0},
+{name = "Solid", r = 1, stroke = 1, tile = Color3.fromRGB(10, 10, 14), hot = Color3.fromRGB(34, 34, 44), tileT = 0, plus = Color3.fromRGB(34, 160, 72), plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.04, tf = "FredokaOne", ab = 3},
+{name = "Glass", r = 1.4, stroke = 0.8, tile = Color3.fromRGB(58, 58, 84), hot = Color3.fromRGB(84, 84, 116), tileT = 0, plus = Color3.fromRGB(80, 220, 130), plusHot = Color3.fromRGB(120, 255, 170), plusT = 0, wt = 0.22, pm = 0.8, hv = 1.06, tf = "Gotham", ab = 3, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(190,225,255), Color3.fromRGB(220,200,255), Color3.fromRGB(200,255,240)}},
+{name = "Sharp", r = 0.15, stroke = 1.6, tile = Color3.fromRGB(22, 22, 22), hot = Color3.fromRGB(48, 48, 48), tileT = 0, plus = Color3.fromRGB(40, 150, 60), plusHot = Color3.fromRGB(60, 190, 80), plusT = 0, wt = 0, pm = 1.3, hv = 1, tf = "GothamBlack", ab = 2},
+{name = "Neon", r = 0.8, stroke = 2.4, tile = Color3.fromRGB(4, 4, 8), hot = Color3.fromRGB(22, 14, 36), tileT = 0, plus = Color3.fromRGB(0, 190, 110), plusHot = Color3.fromRGB(30, 240, 150), plusT = 0, wt = 0, pm = 1.9, hv = 1.09, tf = "GothamBlack", ab = 5, pcol = {Color3.fromRGB(0,255,255), Color3.fromRGB(255,0,200), Color3.fromRGB(120,255,80), Color3.fromRGB(255,255,0)}},
+{name = "Soft", r = 1.8, stroke = 0.5, tile = Color3.fromRGB(46, 40, 66), hot = Color3.fromRGB(70, 60, 98), tileT = 0, plus = Color3.fromRGB(70, 190, 110), plusHot = Color3.fromRGB(90, 215, 130), plusT = 0, wt = 0.08, pm = 0.55, hv = 1.07, tf = "Cartoon", ab = 4, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(255,200,225), Color3.fromRGB(255,230,200), Color3.fromRGB(210,255,225)}},
+{name = "Terminal", r = 0, stroke = 1.4, tile = Color3.fromRGB(0, 14, 0), hot = Color3.fromRGB(0, 40, 6), tileT = 0, plus = Color3.fromRGB(0, 120, 30), plusHot = Color3.fromRGB(0, 160, 44), plusT = 0, wt = 0, pm = 0.45, hv = 1, tf = "Code", ab = 2, pcol = {Color3.fromRGB(0,255,70), Color3.fromRGB(0,200,50), Color3.fromRGB(120,255,120), Color3.fromRGB(0,150,40)}},
 }
 function L.cur()
 for _, st in ipairs(L.styles) do if st.name == S.style then return st end end
 return L.styles[1]
 end
 L.rs, L.ss = L.cur().r, L.cur().stroke
+L.pm, L.hv = L.cur().pm or 1, L.cur().hv or 1.04
 local scheduleSave = debounce(0.4, function() writeJson(FILE.SETTINGS, S) end)
 local SND = {
 click = "rbxassetid://140207837688369", ok = "rbxassetid://135165335432475", run = "rbxassetid://100754383843032",
@@ -284,7 +285,13 @@ end)
 end
 local function normalizeCode(code)
 local t = code:match("^%s*(.-)%s*$")
-if t:find("loadstring", 1, true) or not t:find("^https?://%S+$") then return code end
+if t:find("loadstring", 1, true) then
+local one = t:match('^(loadstring%s*%(%s*game:HttpGet%s*%(%s*"https?://[^"\n]+"%s*%)%s*%)%s*%(%s*%))%s*;?$')
+or t:match("^(loadstring%s*%(%s*game:HttpGet%s*%(%s*'https?://[^'\n]+'%s*%)%s*%)%s*%(%s*%))%s*;?$")
+or t:match('^(loadstring%s*%(%s*game:HttpGet%s*%(%s*"https?://[^"\n]+"%s*,%s*true%s*%)%s*%)%s*%(%s*%))%s*;?$')
+return one or code
+end
+if not t:find("^https?://%S+$") then return code end
 local url = t
 local id = url:match("^https?://[%w%.]*pastebin%.com/(%w+)/?$")
 if id then url = "https://pastebin.com/raw/" .. id end
@@ -794,7 +801,7 @@ shadow.Size = UO(shadowW, shadowH)
 if minimized then return end
 if ab.X > 250 then layerW, layerH = ab.X - PAD * 2, ab.Y - TITLE_H - PAD * 2 end
 local count = S.particlesOn and S.particleCount or 0
-local speed = S.speed
+local speed = S.speed * L.pm
 for i = 1, count do
 local p = parts[i]
 p.y = p.y + p.vy * speed * dt
@@ -1285,9 +1292,9 @@ Font = Enum.Font.Nunito, TextSize = 12, Text = "View", TextColor3 = WHITE, ZInde
 round(viewBtn, 6)
 runBtn.MouseButton1Click:Connect(function() runScript(entry) end)
 viewBtn.MouseButton1Click:Connect(function() openViewer(entry) end)
-local restScale = UIS.MouseEnabled and 1.04 or 1
+local restScale = UIS.MouseEnabled and L.hv or 1
 tile.MouseEnter:Connect(function()
-tween(scale, FAST, {Scale = 1.04})
+tween(scale, FAST, {Scale = L.hv})
 tween(tile, FAST, {BackgroundColor3 = TILE_HOT})
 tween(tStroke, FAST, {Transparency = 0.05})
 end)
@@ -1639,12 +1646,12 @@ for o, key in pairs(themedFill) do
 if o.Parent then o.BackgroundColor3 = th[key] else themedFill[o] = nil end
 end
 for _, p in ipairs(parts) do
-local col = th.pal[p.ci]
+local col = L.cur().pcol and L.cur().pcol[p.ci] or th.pal[p.ci]
 if p.kind == "triangle" then p.o.TextColor3 = col else p.o.BackgroundColor3 = col end
 end
 for _, r in ipairs(refreshers) do r() end
 end
-local function applyWindow() win.BackgroundTransparency = S.winTrans end
+local function applyWindow() win.BackgroundTransparency = minimized and 1 or math.min(0.92, S.winTrans + (L.cur().wt or 0)) end
 local function applyShadow() shadow.Visible = S.shadowOn end
 local function applyParticles()
 for i, p in ipairs(parts) do p.o.Visible = S.particlesOn and i <= S.particleCount end
@@ -1685,6 +1692,16 @@ for k, t in pairs(L.strokes) do
 if k.Parent then k.Thickness = t * st.stroke else L.strokes[k] = nil end
 end
 for _, p in ipairs(L.plus) do p.BackgroundColor3, p.BackgroundTransparency = st.plus, st.plusT end
+L.pm, L.hv = st.pm or 1, st.hv or 1.04
+applyWindow()
+accent.Size = U2(1, 0, 0, st.ab or 3)
+title:SetAttribute("FixedFont", true)
+pcall(function() title.Font = Enum.Font[st.tf or "FredokaOne"] end)
+local th = themeColors(S.hue, S.sat)
+for _, p in ipairs(parts) do
+local col = st.pcol and st.pcol[p.ci] or th.pal[p.ci]
+if p.kind == "triangle" then p.o.TextColor3 = col else p.o.BackgroundColor3 = col end
+end
 for _, ui in pairs(pageUI) do renderPage(ui.current) end
 end
 local function applyAll()
@@ -1862,10 +1879,10 @@ pickGrid(names, "style", L.applyStyle, false)
 end
 do
 sectionHeader("Teleport and rejoin")
-toggleRow("Re-open this GUI after teleport / rejoin", "reopen", nop)
+toggleRow("Re-open this GUI after teleport / rejoin", "reopen", function() if L.queueReopen then L.queueReopen() end end)
 local row = new("Frame", {Size = U2(1, 0, 0, 34), BackgroundColor3 = WHITE, BackgroundTransparency = 0.9, BorderSizePixel = 0, ZIndex = 20, LayoutOrder = nextOrder()}, sPage)
 round(row, 8)
-local box = inputBox(row, 6, 4, 190, 26, "Loader link (only if you don't run it from a file)", false, 21)
+local box = inputBox(row, 6, 4, 190, 26, "Loader link (optional, GUI reopens by itself otherwise)", false, 21)
 box.Size, box.Text = U2(1, -100, 0, 26), S.reloadUrl
 local b = button(row, 0, 0, 80, 26, "Save", WHITE, 0.6, 21)
 b.AnchorPoint, b.Position, b.TextSize = V2(1, 0.5), U2(1, -6, 0.5, 0), 12
@@ -2630,7 +2647,9 @@ BackgroundColor3 = Color3.fromRGB(58, 58, 78), BorderSizePixel = 0, AutoButtonCo
 Font = Enum.Font.Nunito, TextSize = 12, Text = "View", TextColor3 = WHITE, ZIndex = 23,
 }, tile)
 round(viewB, 6)
-run.MouseButton1Click:Connect(function() X.withCode(s, function(code) runScript({name = title, code = code}) end) end)
+run.MouseButton1Click:Connect(function()
+if L.sbSlug(id.code) then runScript({name = title, code = id.code}) else X.withCode(s, function(code) runScript({name = title, code = code}) end) end
+end)
 viewB.MouseButton1Click:Connect(function() X.withCode(s, function(code) openViewer(id, code) end) end)
 tile.Parent = grid
 end
@@ -2985,28 +3004,35 @@ local qot = (typeof(queue_on_teleport) == "function" and queue_on_teleport)
 or (typeof(syn) == "table" and syn.queue_on_teleport) or (typeof(fluxus) == "table" and fluxus.queue_on_teleport)
 if qot then
 local queued = false
-LP.OnTeleport:Connect(function()
+local URLS = {
+"https://raw.githubusercontent.com/GGSOZI/DuasLibrary/main/DuasLibraryUI.lua",
+"https://raw.githubusercontent.com/GGSOZI/DuasLibrary/master/DuasLibraryUI.lua",
+}
+function L.queueReopen()
 if queued or not S.reopen or not sg.Parent then return end
-local code
-if S.reloadUrl ~= "" then
-code = ("loadstring(game:HttpGet(%q))()"):format(S.reloadUrl)
-elseif canSave then
+local parts2 = {}
+if canSave then
 local files = {}
 if selfFile then files[1] = selfFile end
 for _, f in ipairs(SELF_CANDIDATES) do files[#files + 1] = f end
 for _, f in ipairs(files) do
 local ok, src = pcall(function() return isfile(f) and readfile(f) end)
 if ok and type(src) == "string" and src:find("DuaKNoUI", 1, true) then
-code = ("loadstring(readfile(%q))()"):format(f)
+parts2[#parts2 + 1] = ("local ok,s=pcall(readfile,%q) if ok and type(s)=='string' then local f=loadstring(s) if f then return f() end end"):format(f)
 break
 end
 end
 end
-if code then
-queued = true
-pcall(qot, code)
+local list = {}
+if S.reloadUrl ~= "" then list[1] = S.reloadUrl end
+for _, u in ipairs(URLS) do list[#list + 1] = u end
+local q = {}
+for _, u in ipairs(list) do q[#q + 1] = ("%q"):format(u) end
+parts2[#parts2 + 1] = "for _,u in ipairs({" .. table.concat(q, ",") .. "}) do local ok,s=pcall(game.HttpGet,game,u) if ok and type(s)=='string' and #s>2000 then local f=loadstring(s) if f then return f() end end end"
+if pcall(qot, table.concat(parts2, "\n")) then queued = true end
 end
-end)
+LP.OnTeleport:Connect(function() L.queueReopen() end)
+task.delay(3, L.queueReopen)
 end
 end
 do
@@ -3253,7 +3279,7 @@ draggable(win, true)
 draggable(sidebar, "force")
 do
 L.grip = new("TextButton", {
-AnchorPoint = V2(0, 1), Position = U2(0, 2, 1, -2), Size = UO(22, 22), BackgroundTransparency = 1, Text = "◣", TextSize = 18,
+AnchorPoint = V2(1, 1), Position = U2(1, -2, 1, -2), Size = UO(16, 16), BackgroundTransparency = 1, Text = "◢", TextSize = 18,
 TextColor3 = WHITE, TextTransparency = 0.3, AutoButtonColor = false, ZIndex = 60,
 }, win)
 function L.setSize(w, h)
@@ -3281,8 +3307,8 @@ end)
 UIS.InputChanged:Connect(function(i)
 if sizing and i == rInput and not minimized then
 local d = i.Position - rStart
-local w, h = L.setSize(rSize.X - d.X, rSize.Y + d.Y)
-win.Position = U2(rPos.X.Scale, rPos.X.Offset - (w - rSize.X) / 2, rPos.Y.Scale, rPos.Y.Offset + (h - rSize.Y) / 2)
+local w, h = L.setSize(rSize.X + d.X, rSize.Y + d.Y)
+win.Position = U2(rPos.X.Scale, rPos.X.Offset + (w - rSize.X) / 2, rPos.Y.Scale, rPos.Y.Offset + (h - rSize.Y) / 2)
 end
 end)
 end
@@ -3303,10 +3329,9 @@ minBtn.Position = minimized and UO(16, 16) or U2(1, -10, 0.5, 0)
 minBtn.Size = minimized and UO(32, 32) or UO(24, 24)
 minBtn.BackgroundColor3 = minimized and Color3.new(0, 0, 0) or WHITE
 minBtn.BackgroundTransparency = minimized and 0 or 0.7
-win.BackgroundTransparency = minimized and 1 or 0
+applyWindow()
 L.grip.Visible = not minimized
 inner.Visible = not minimized
-winStroke.Enabled = not minimized
 L.miniImg.Visible = minimized and L.iconOK == true
 minBtn.Text = minimized and (L.iconOK and "" or "+") or "-"
 end)
@@ -3322,7 +3347,7 @@ local function uid() return string.format("%x%x%x", os.time(), math.random(0, 65
 local GRAY = Color3.fromRGB(38, 38, 42)
 round(new("Frame", {Size = U2(1, 0, 1, 0), BackgroundColor3 = GRAY, BorderSizePixel = 0, ZIndex = 20}, host), 10)
 local scroll = new("ScrollingFrame", {
-Position = UO(10, 46), Size = U2(1, -20, 1, -118), BackgroundColor3 = GRAY, BackgroundTransparency = 0,
+Position = UO(10, 46), Size = U2(1, -20, 1, -126), BackgroundColor3 = GRAY, BackgroundTransparency = 0,
 BorderSizePixel = 0, ScrollBarThickness = 3, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 22,
 }, host)
 round(scroll, 8)
@@ -3330,15 +3355,15 @@ new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.Layout
 new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, 6), PaddingBottom = UDim.new(0, 6)}, scroll)
 local empty = text(host, {Position = UO(10, 120), Size = U2(1, -20, 0, 20), Font = Enum.Font.Nunito, TextSize = 13, Text = "No messages yet. Say hi!", TextTransparency = 0.4, ZIndex = 23})
 text(host, {
-AnchorPoint = V2(0, 1), Position = U2(0, 10, 1, -50), Size = U2(1, -20, 0, 14), Font = Enum.Font.Nunito, TextSize = 10, TextTransparency = 0.4,
+AnchorPoint = V2(0, 1), Position = U2(0, 10, 1, -58), Size = U2(1, -20, 0, 14), Font = Enum.Font.Nunito, TextSize = 10, TextTransparency = 0.4,
 Text = "Live for everyone using Dua's Library. Tap a name to message them privately. Nothing here is verified or secret.", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22,
 })
 local toBox = inputBox(host, 0, 0, 84, 34, "To (name)", false, 23)
-toBox.AnchorPoint, toBox.Position = V2(0, 1), U2(0, 10, 1, -10)
+toBox.AnchorPoint, toBox.Position = V2(0, 1), U2(0, 10, 1, -18)
 local box = inputBox(host, 0, 0, 10, 34, "Say something...", false, 23)
-box.AnchorPoint, box.Position, box.Size = V2(0, 1), U2(0, 100, 1, -10), U2(1, -186, 0, 34)
+box.AnchorPoint, box.Position, box.Size = V2(0, 1), U2(0, 100, 1, -18), U2(1, -186, 0, 34)
 local send = button(host, 0, 0, 76, 34, "Send", Color3.fromRGB(34, 160, 72), 0, 23)
-send.AnchorPoint, send.Position = V2(1, 1), U2(1, -10, 1, -10)
+send.AnchorPoint, send.Position = V2(1, 1), U2(1, -10, 1, -18)
 local function colorOf(name)
 local h = 7
 for i = 1, #name do h = (h * 31 + name:byte(i)) % 360 end

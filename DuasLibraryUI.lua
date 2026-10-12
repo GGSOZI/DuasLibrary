@@ -609,6 +609,9 @@ end)
 end
 end
 local httpReq = (typeof(request) == "function" and request) or (typeof(http_request) == "function" and http_request)
+or (typeof(syn) == "table" and typeof(syn.request) == "function" and syn.request)
+or (typeof(http) == "table" and typeof(http.request) == "function" and http.request)
+or (typeof(fluxus) == "table" and typeof(fluxus.request) == "function" and fluxus.request)
 or (typeof(syn) == "table" and syn.request) or (typeof(http) == "table" and http.request)
 or (typeof(fluxus) == "table" and fluxus.request) or nil
 local function readToken()
@@ -1550,7 +1553,7 @@ fit(rq, 12, 8)
 rq.MouseButton1Click:Connect(function() L.openCompose() end)
 else
 box.Position, box.Size = UO(10, 46), U2(1, -100, 0, 26)
-L.rf = button(page, 0, 0, 80, 26, "↻ Refresh", Color3.fromRGB(58, 58, 90), 0, 22)
+L.rf = button(page, 0, 0, 80, 26, "Refresh", Color3.fromRGB(58, 58, 90), 0, 22)
 L.rf.AnchorPoint, L.rf.Position, L.rf.TextSize = V2(1, 0), U2(1, -10, 0, 46), 12
 L.rf.MouseButton1Click:Connect(function()
 L.commBusy = false
@@ -2191,17 +2194,18 @@ applyAll(); scheduleSave()
 end)
 do
 local BOARD_PAT = "^https://jsonblob%.com/api/jsonBlob/[%w%-]+$"
-L.DEFAULT_BOARD = "https://jsonblob.com/api/jsonBlob/01a1139c-e159-7461-9c4e-5979e11d36b3"
+local BOARD_PAT2 = "^https://api%.npoint%.io/[%w]+$"
+L.DEFAULT_BOARD = "https://api.npoint.io/bfda7d2b5a0f0a37df26"
 local ui = pageUI[L.FAVP]
 function L.boardOf()
 local u = L.DEFAULT_BOARD
-return type(u) == "string" and u:match(BOARD_PAT) and u or nil
+return type(u) == "string" and (u:match(BOARD_PAT) or u:match(BOARD_PAT2)) and u or nil
 end
 local function call(method, url, body)
 if not httpReq then return nil end
 local ok, res = pcall(httpReq, {
 Url = url, Method = method,
-Headers = {["Content-Type"] = "application/json", Accept = "application/json"},
+Headers = {["Content-Type"] = "application/json", Accept = "application/json", ["Cache-Control"] = "no-cache"},
 Body = body,
 })
 if ok and type(res) == "table" then return res end
@@ -2223,8 +2227,14 @@ end
 if body then L.boardErr = "board data unreadable" end
 end
 function L.bWrite(url, d)
-local res = call("PUT", url, HttpService:JSONEncode(d))
-return res ~= nil and (tonumber(res.StatusCode) or 200) < 300
+local res = call(url:find("npoint.io", 1, true) and "POST" or "PUT", url, HttpService:JSONEncode(d))
+if not res then
+L.boardErr = httpReq and "write: no response" or "this executor has no request(), it can read but not write"
+return false
+end
+local sc = tonumber(res.StatusCode) or 200
+if sc >= 300 then L.boardErr = "write: HTTP " .. sc; return false end
+return true
 end
 local function nextId()
 local id = os.time()
@@ -2352,7 +2362,7 @@ L.commBusy = false
 L.commPull()
 if L.ping then L.ping("board") end
 else
-notify("Share pending", "Couldn't confirm it yet. It keeps retrying by itself", nil, 4)
+notify("Share pending", "Couldn't confirm it yet" .. (L.boardErr and (" (" .. L.boardErr .. ")") or "") .. ". It keeps retrying by itself", nil, 5)
 end
 end)
 return true
@@ -2457,7 +2467,7 @@ local rb = inputBox(row, 8, 74, 190, 28, "Reply to " .. tostring(h.n):sub(1, 16)
 rb.Size = U2(1, -100, 0, 28)
 local sb = button(row, 0, 0, 80, 28, "Reply", Color3.fromRGB(34, 160, 72), 0, 21)
 sb.AnchorPoint, sb.Position, sb.TextSize = V2(1, 0), U2(1, -8, 0, 74), 12
-local xb = button(row, 0, 0, 24, 24, "✕", Color3.fromRGB(150, 50, 50), 0.2, 21)
+local xb = button(row, 0, 0, 24, 24, "X", Color3.fromRGB(150, 50, 50), 0.2, 21)
 xb.AnchorPoint, xb.Position, xb.TextSize = V2(1, 0), U2(1, -8, 0, 6), 12
 sb.MouseButton1Click:Connect(function()
 if not adminOk() then return end
@@ -2558,7 +2568,7 @@ elseif not arr then topBody.Text = "Loading..."
 elseif #arr == 0 then topBody.Text = "Nobody has favorited anything yet."
 else
 local lines = {}
-for i = 1, math.min(5, #arr) do lines[i] = i .. ".  " .. arr[i].n:sub(1, 34) .. "   ♥ " .. arr[i].k end
+for i = 1, math.min(5, #arr) do lines[i] = i .. ".  " .. arr[i].n:sub(1, 34) .. "   (" .. arr[i].k .. " fav)" end
 topBody.Text = table.concat(lines, "\n")
 end
 end
@@ -2660,7 +2670,7 @@ head("🔥 Top 5 favorited")
 local arr = L.tally(d)
 if #arr == 0 then head("Nobody has favorited anything yet.") end
 for i = 1, math.min(5, #arr) do
-text(row(18), {Size = UDim2.fromScale(1, 1), Font = Enum.Font.Nunito, TextSize = 12, Text = i .. ".  " .. arr[i].n:sub(1, 40) .. "   ♥ " .. arr[i].k, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22})
+text(row(18), {Size = UDim2.fromScale(1, 1), Font = Enum.Font.Nunito, TextSize = 12, Text = i .. ".  " .. arr[i].n:sub(1, 40) .. "   (" .. arr[i].k .. " fav)", TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22})
 end
 local users = {}
 for uid, u in pairs(d.users) do
@@ -3875,6 +3885,13 @@ end
 function C.handle(p, mine, primed)
 if type(p.i) ~= "string" or C.seen[p.i] then return end
 C.seen[p.i] = true
+if p.k == "x" then
+if not mine and (C.adminIds or {})[tostring(p.u)] == "owner" then
+C.clearLines()
+C.system("The chat was cleared by " .. tostring(p.n):gsub("[^%w_]", ""):sub(1, 20) .. ".")
+end
+return
+end
 C.nseen = (C.nseen or 0) + 1
 if C.nseen > 600 then C.seen, C.nseen = {[p.i] = true}, 1 end
 if p.k == "m" and type(p.t) == "string" and type(p.n) == "string" then
@@ -3965,7 +3982,7 @@ C.primed = true
 end
 function C.publish(p)
 if C.mode == "board" then
-if p.k ~= "m" and p.k ~= "a" then return end
+if p.k ~= "m" and p.k ~= "a" and p.k ~= "x" then return end
 local url = L.boardOf()
 if not url then return end
 task.spawn(function()
@@ -4001,6 +4018,18 @@ end
 return false
 end
 function L.announceLive(t) C.publish({k = "a", i = uid(), u = MYID, n = verName or LP.Name, t = t}) end
+function C.clearLines()
+for _, ln in ipairs(C.lines) do C.lineData[ln] = nil; ln:Destroy() end
+C.lines = {}
+empty.Visible = true
+end
+function C.langCode(w)
+w = tostring(w or ""):lower()
+if w == "" then return nil end
+for _, l in ipairs(C.LANGS) do
+if l[2] ~= "" and (l[2]:lower() == w or l[1]:lower() == w) then return l[2], l[1] end
+end
+end
 function C.send(msg, sc)
 msg = msg:gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 200)
 if msg == "" and not sc then return end
@@ -4009,10 +4038,44 @@ if msg:sub(1, 1) == "/" then
 local c, rest = msg:match("^/(%a+)%s*(.*)$")
 c = c and c:lower()
 if c == "help" then
-C.system("Commands: /help, /clear" .. (isAdmin and ", /mute name [minutes]" or "") .. ". Type #share, #favorites, #scriptblox or #info to link a page, @name to mention someone.")
+C.system("Commands: /help, /clear (only for you), /board (test the shared board), /tr [language] text (sends the translation as your message)" .. (isAdmin and ", /mute name [minutes]" or "") .. (L.owner() and ", /clearall (clears the chat for everyone)" or "") .. ". Type #share, #favorites, #scriptblox or #info to link a page, @name to mention someone.")
 elseif c == "clear" then
-for _, ln in ipairs(C.lines) do C.lineData[ln] = nil; ln:Destroy() end
-C.lines = {}
+C.clearLines()
+elseif c == "clearall" then
+if not (L.owner() and adminOk()) then C.system("Only the owner can use /clearall") return end
+C.clearLines()
+local cp = {k = "x", i = uid(), u = MYID, n = LP.Name}
+C.seen[cp.i] = true
+C.publish(cp)
+C.system("Chat cleared for everyone.")
+elseif c == "board" then
+local url = L.boardOf()
+if not url then C.system("Board: no valid link set in L.DEFAULT_BOARD") return end
+C.system("Board host: " .. tostring(url:match("^https://([^/]+)")) .. "  |  request(): " .. (httpReq and "yes" or "NO"))
+task.spawn(function()
+local d = L.bRead(url)
+if not d then C.system("Board READ FAILED: " .. tostring(L.boardErr)) return end
+local n, f = 0, 0
+for _ in ipairs(type(d.shared) == "table" and d.shared or {}) do n = n + 1 end
+for _ in pairs(d.users) do f = f + 1 end
+C.system("Board READ OK: " .. n .. " shared scripts, " .. f .. " players with favorites")
+if L.owner() then
+local ok = L.bWrite(url, d)
+C.system(ok and "Board WRITE OK" or ("Board WRITE FAILED: " .. tostring(L.boardErr)))
+end
+end)
+elseif c == "tr" or c == "translate" then
+local first, remain = rest:match("^(%S+)%s+(.+)$")
+local code, name = C.langCode(first)
+local txt = code and remain or rest
+code, name = code or "en", name or "English"
+if txt == "" then C.system("Usage: /tr es hello world   (or  /tr hello  to translate to English)") return end
+C.translate(txt, code, function(res)
+if res then
+res = (res:gsub("^[/%s]+", ""))
+if res ~= "" then C.send(res) end
+else notify("Translate", "Couldn't translate right now", nil, 3) end
+end)
 elseif c == "mute" and isAdmin then
 local who, mins = rest:match("^(%S+)%s*(%d*)")
 local id = who and C.uids[who:lower()]
@@ -4098,7 +4161,7 @@ BorderSizePixel = 0, Visible = false, ZIndex = 40,
 round(C.pickF, 10)
 outline(C.pickF, 2, 0.3)
 C.pickT = text(C.pickF, {Position = UO(10, 8), Size = U2(1, -50, 0, 22), Text = "", TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 41})
-local xb = button(C.pickF, 0, 0, 24, 24, "✕", Color3.fromRGB(58, 58, 78), 0, 41)
+local xb = button(C.pickF, 0, 0, 24, 24, "X", Color3.fromRGB(58, 58, 78), 0, 41)
 xb.AnchorPoint, xb.Position, xb.TextSize = V2(1, 0), U2(1, -8, 0, 8), 12
 xb.MouseButton1Click:Connect(function() C.pickF.Visible = false end)
 local opts = {{"5 min", 300}, {"30 min", 1800}, {"1 hour", 3600}, {"24 hours", 86400}, {"Forever", 0}, {"Unmute", -1}}
@@ -4126,6 +4189,8 @@ C.LANGS = {
 {"Off", ""}, {"English", "en"}, {"Spanish", "es"}, {"Portuguese", "pt"}, {"French", "fr"}, {"German", "de"}, {"Russian", "ru"}, {"Arabic", "ar"},
 {"Turkish", "tr"}, {"Indonesian", "id"}, {"Hindi", "hi"}, {"Japanese", "ja"}, {"Korean", "ko"}, {"Chinese", "zh-CN"}, {"Filipino", "tl"},
 {"Vietnamese", "vi"}, {"Polish", "pl"}, {"Italian", "it"},
+{"Dutch", "nl"}, {"Swedish", "sv"}, {"Ukrainian", "uk"}, {"Thai", "th"}, {"Greek", "el"}, {"Hebrew", "iw"}, {"Czech", "cs"},
+{"Romanian", "ro"}, {"Bengali", "bn"}, {"Urdu", "ur"}, {"Persian", "fa"}, {"Malay", "ms"}, {"Trad. Chinese", "zh-TW"},
 }
 function C.langName(code)
 for _, l in ipairs(C.LANGS) do if l[2] == code then return l[1] end end
@@ -4150,13 +4215,49 @@ end
 function C.join(p)
 local name = C.gname[p.g] or "that game"
 askConfirm("Join " .. tostring(p.n):sub(1, 20) .. " in " .. name .. "?", function()
-local ok = pcall(function() game:GetService("TeleportService"):TeleportToPlaceInstance(p.g, p.j, LP) end)
-notify(ok and "Joining..." or "Couldn't join", ok and name or "The server may be full or private", nil, 4)
+local TS = game:GetService("TeleportService")
+local link = ("roblox://experiences/start?placeId=%d&gameInstanceId=%s"):format(p.g, p.j)
+local failed = false
+local conn = TS.TeleportInitFailed:Connect(function(plr, result, msg)
+if plr ~= LP or failed then return end
+failed = true
+pcall(function() setclipboard(link) end)
+notify("Couldn't join", (tostring(msg) ~= "" and tostring(msg) or tostring(result)):sub(1, 70) .. " | join link copied, paste it in your browser", nil, 8)
+end)
+local ok, err = pcall(function() TS:TeleportToPlaceInstance(p.g, p.j, LP) end)
+if not ok then
+ok = pcall(function()
+local opt = Instance.new("TeleportOptions")
+opt.ServerInstanceId = p.j
+TS:TeleportAsync(p.g, {LP}, opt)
+end)
+end
+if not ok then
+failed = true
+pcall(function() setclipboard(link) end)
+notify("Couldn't join", "Join link copied, paste it in your browser", nil, 6)
+else
+notify("Joining...", name, nil, 4)
+task.delay(15, function()
+conn:Disconnect()
+if not failed and LP.Parent then
+pcall(function() setclipboard(link) end)
+notify("Still not joined", "The server may be full, closed or private. Join link copied, paste it in your browser", nil, 8)
+end
+end)
+end
 end, "Join")
 end
 function C.translate(textIn, tl, cb)
 task.spawn(function()
-local out
+tl = tostring(tl or "en")
+local up = function(x) return tostring(x):upper() end
+local function bad(x)
+local u = up(x)
+return u:find("PLEASE SELECT", 1, true) or u:find("MYMEMORY WARNING", 1, true) or u:find("INVALID LANGUAGE", 1, true) or u:find("QUERY LENGTH LIMIT", 1, true)
+end
+local out, same
+-- 1) Google (auto-detects the source language)
 local body = get("https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=" .. tl .. "&dt=t&q=" .. HttpService:UrlEncode(textIn))
 if body then
 local ok, d = pcall(HttpService.JSONDecode, HttpService, body)
@@ -4166,11 +4267,32 @@ for _, seg in ipairs(d[1]) do if type(seg) == "table" and type(seg[1]) == "strin
 out = table.concat(parts)
 end
 end
+-- 2) second Google endpoint
 if not out or out == "" then
-local b2 = get("https://api.mymemory.translated.net/get?q=" .. HttpService:UrlEncode(textIn) .. "&langpair=en|" .. tl)
-local ok, d = pcall(HttpService.JSONDecode, HttpService, b2 or "")
-if ok and type(d) == "table" and type(d.responseData) == "table" and type(d.responseData.translatedText) == "string" then out = d.responseData.translatedText end
+local b = get("https://clients5.google.com/translate_a/t?client=dict-chrome-ex&sl=auto&tl=" .. tl .. "&q=" .. HttpService:UrlEncode(textIn))
+if b then
+local ok, d = pcall(HttpService.JSONDecode, HttpService, b)
+if ok and type(d) == "table" then
+local f = d[1]
+if type(f) == "table" then f = f[1] end
+if type(f) == "string" then out = f end
 end
+end
+end
+-- 3) MyMemory (source auto-detected; its error texts are never shown as a translation)
+if not out or out == "" then
+local b2 = get("https://api.mymemory.translated.net/get?q=" .. HttpService:UrlEncode(textIn) .. "&langpair=Autodetect|" .. tl)
+local ok, d = pcall(HttpService.JSONDecode, HttpService, b2 or "")
+if ok and type(d) == "table" and type(d.responseData) == "table" and type(d.responseData.translatedText) == "string" then
+local t = d.responseData.translatedText
+if bad(t) then
+if up(t):find("PLEASE SELECT", 1, true) then same = true end
+else
+out = t
+end
+end
+end
+if same and (not out or out == "") then out = textIn end
 cb(out and out ~= "" and out or nil)
 end)
 end
@@ -4234,7 +4356,7 @@ if c:IsA("TextButton") then c:Destroy() end
 end
 local function chip()
 if not C.attach then return end
-local cb = button(C.sugF, 0, 0, 120, 22, "📎 " .. C.attach.n .. "  ✕", Color3.fromRGB(34, 140, 70), 0, 31)
+local cb = button(C.sugF, 0, 0, 120, 22, "📎 " .. C.attach.n .. "  X", Color3.fromRGB(34, 140, 70), 0, 31)
 cb.LayoutOrder, cb.TextSize = 0, 11
 cb.Size = UO(#cb.Text * 5 + 16, 22)
 cb.MouseButton1Click:Connect(function() C.attach = nil; C.suggest() end)
@@ -4381,7 +4503,7 @@ local p = C.menuP
 C.menuF.Visible = false
 if p and p.u ~= MYID then toBox.Text = tostring(p.n):sub(1, 20) end
 end)
-mb(194, 30, "✕ Close", grey, function() C.menuF.Visible = false end)
+mb(194, 30, "Close", grey, function() C.menuF.Visible = false end)
 C.menuS = new("Frame", {Position = UO(0, 62), Size = U2(1, 0, 0, 30), BackgroundTransparency = 1, Visible = false, ZIndex = 41}, C.menuF)
 mb(10, 0, "▶ Run", Color3.fromRGB(34, 140, 70), function()
 local p = C.menuP
@@ -4425,7 +4547,7 @@ C.langF = new("Frame", {AnchorPoint = V2(0.5, 0.5), Position = U2(0.5, 0, 0.5, 0
 round(C.langF, 10)
 outline(C.langF, 2, 0.3)
 text(C.langF, {Position = UO(10, 6), Size = U2(1, -50, 0, 22), Text = "🌐 Translate chat to:", TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 41})
-local lx = button(C.langF, 0, 0, 24, 24, "✕", grey, 0, 41)
+local lx = button(C.langF, 0, 0, 24, 24, "X", grey, 0, 41)
 lx.AnchorPoint, lx.Position, lx.TextSize = V2(1, 0), U2(1, -8, 0, 6), 12
 lx.MouseButton1Click:Connect(function() C.langF.Visible = false end)
 local lgp = new("ScrollingFrame", {

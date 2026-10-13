@@ -81,21 +81,21 @@ GIST = "DuaLibrary.json", FAVS = "DuaLibrary_Favs.json", NOTES = "DuaLibrary_Not
 }
 local ADD_PAGE = "Share Script"
 local DEFAULTS = {
-hue = 0.75, sat = 1, winTrans = 0,
+hue = 0.75, sat = 1, winTrans = 0.6,
 particlesOn = true, particleCount = 90, speed = 1,
 shadowOn = true, lockDrag = false,
 autoClose = true, autoCloseDelay = 2,
 soundOn = true, seenNotice = "", seenMsg = 0, rmDone = 0, favSig = "", reopen = false, reopenMig = false, chatTips = true, reloadUrl = "", antiAfk = false, fullbright = false, noFog = false, esp = false, clockTime = 14, maxZoom = 128,
-font = "Nunito", style = "Solid", bold = true,
+font = "Nunito", style = "Shatter", bold = true,
 walkSpeed = 16, jumpPower = 50, gravity = 196.2, fov = 70, flySpeed = 60, infJump = false, noclip = false, fly = false,
 winW = 560, winH = 350,
 chatGames = false, shareGame = true, chatLang = "", chatLangLast = "", helpSeen = "",
-shareAdd = true, dmSeen = "", shareSort = "new",
+shareAdd = true, dmSeen = "", shareSort = "new", bgUrl = "", bgVis = 0.75, bgOn = true, bgMig = false, bgMig2 = false, bgPreset = 1,
 }
 local LIMITS = {
 hue = {0, 1}, sat = {0.05, 1}, winTrans = {0, 0.6},
 particleCount = {0, PARTICLE_MAX}, speed = {0.2, 3}, autoCloseDelay = {1, 6},
-winW = {380, 1100}, winH = {260, 800}, walkSpeed = {0, 300}, jumpPower = {0, 300}, gravity = {0, 400}, fov = {30, 120}, flySpeed = {10, 300}, clockTime = {0, 24}, maxZoom = {10, 1000},
+bgVis = {0.05, 0.9}, winW = {380, 1100}, winH = {260, 800}, walkSpeed = {0, 300}, jumpPower = {0, 300}, gravity = {0, 400}, fov = {30, 120}, flySpeed = {10, 300}, clockTime = {0, 24}, maxZoom = {10, 1000},
 }
 local WHITE = Color3.new(1, 1, 1)
 local RED = Color3.fromRGB(210, 70, 95)
@@ -269,6 +269,7 @@ end
 if ff then pcall(function() o.FontFace = ff end) end
 end
 L.styles = {
+{name = "Shatter", r = 1.2, stroke = 1.1, tile = Color3.fromRGB(11, 11, 24), hot = Color3.fromRGB(40, 38, 74), tileT = 0, plus = Color3.fromRGB(34, 160, 72), plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.05, tf = "FredokaOne", ab = 3, img = true, barT = 0.38, sbT = 0.3},
 {name = "Solid", r = 1, stroke = 1, tile = Color3.fromRGB(10, 10, 14), hot = Color3.fromRGB(34, 34, 44), tileT = 0, plus = Color3.fromRGB(34, 160, 72), plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.04, tf = "FredokaOne", ab = 3},
 {name = "Glass", r = 1.4, stroke = 0.8, tile = Color3.fromRGB(58, 58, 84), hot = Color3.fromRGB(84, 84, 116), tileT = 0, plus = Color3.fromRGB(80, 220, 130), plusHot = Color3.fromRGB(120, 255, 170), plusT = 0, wt = 0.22, pm = 0.8, hv = 1.06, tf = "Gotham", ab = 3, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(190,225,255), Color3.fromRGB(220,200,255), Color3.fromRGB(200,255,240)}},
 {name = "Sharp", r = 0.15, stroke = 1.6, tile = Color3.fromRGB(22, 22, 22), hot = Color3.fromRGB(48, 48, 48), tileT = 0, plus = Color3.fromRGB(40, 150, 60), plusHot = Color3.fromRGB(60, 190, 80), plusT = 0, wt = 0, pm = 1.3, hv = 1, tf = "GothamBlack", ab = 2},
@@ -284,6 +285,8 @@ L.rs, L.ss = L.cur().r, L.cur().stroke
 L.pm, L.hv = L.cur().pm or 1, L.cur().hv or 1.04
 local scheduleSave = debounce(0.4, function() writeJson(FILE.SETTINGS, S) end)
 if not S.reopenMig then S.reopenMig, S.reopen = true, false; scheduleSave() end
+if not S.bgMig then S.bgMig, S.style = true, "Shatter"; scheduleSave() end
+if not S.bgMig2 then S.bgMig2, S.bgVis, S.winTrans, S.bgPreset = true, 0.75, 0.6, 1; scheduleSave() end
 local SND = {
 click = "rbxassetid://140207837688369", ok = "rbxassetid://135165335432475", run = "rbxassetid://100754383843032",
 }
@@ -475,6 +478,49 @@ end
 return cleanPages(data.pages)
 end
 end
+-- Dua's Library npoint feed: owner posts go to the gist AND this bin, other admins post only to this bin.
+-- PASTE YOUR npoint.io LINK FOR DUA'S LIBRARY HERE, e.g. "https://api.npoint.io/xxxxxxxxxxxxxxxxxxxx"
+L.DUA_BOARD = "https://api.npoint.io/2e49b7ead8abe128230e"
+L.BOARD_SECTIONS = {["Dua's favorites"] = true, NPCs = true, Weapons = true, Utility = true}
+L.OWNER_NAMES = {duakno = true, saifb90 = true}
+function L.boardUrlOf()
+local u = L.DUA_BOARD
+if type(u) == "string" and u:match("^https://api%.npoint%.io/[%w]+$") then return u end
+end
+-- a script posted by an admin who is not an owner (it carries the poster's name in "by")
+function L.isAdminPost(name, e)
+return L.BOARD_SECTIONS[name] == true and type(e.by) == "string" and e.by ~= "" and not L.OWNER_NAMES[e.by:lower()]
+end
+function L.boardFetch()
+local url = L.boardUrlOf()
+if not url then return nil end
+local ok, body = pcall(function() return game:HttpGet(url) end)
+if not ok or type(body) ~= "string" then return nil end
+local ok2, data = pcall(HttpService.JSONDecode, HttpService, body)
+if not ok2 or type(data) ~= "table" then return nil end
+local out = {}
+if type(data.pages) == "table" then
+for name, list in pairs(data.pages) do
+if L.BOARD_SECTIONS[name] then out[name] = cleanList(list) end
+end
+end
+return out
+end
+function L.boardMergeInto(target, bp)
+for name, list in pairs(bp) do
+target[name] = target[name] or {}
+local have = {}
+for _, x in ipairs(target[name]) do have[x.name .. "\0" .. x.code] = true end
+for _, e in ipairs(list) do
+local k = e.name .. "\0" .. e.code
+if not have[k] then
+have[k] = true
+table.insert(target[name], e)
+end
+end
+end
+return target
+end
 local feedPages, feedDone = nil, feedUrl == ""
 if not feedDone then
 task.spawn(function()
@@ -485,6 +531,8 @@ else
 local c = readJson(FILE.FEED)
 if c and type(c.pages) == "table" then feedPages = cleanPages(L.unpackPages(c.pages)) end
 end
+local bp = L.boardFetch()
+if bp then feedPages = L.boardMergeInto(feedPages or cleanPages(EMBEDDED_PAGES), bp) end
 feedDone = true
 end)
 end
@@ -540,6 +588,7 @@ if n.text == L.lastLive then return end
 L.banner(n.from or "DuaKNo", n.text)
 end
 function L.banner(from, msg)
+notify("📢 " .. tostring(from):sub(1, 24), tostring(msg):sub(1, 140), nil, 6)
 local old = PG:FindFirstChild("DuaKNoMsg")
 if old then old:Destroy() end
 local gui = new("ScreenGui", {Name = "DuaKNoMsg", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999}, PG)
@@ -731,7 +780,19 @@ if #t > 0 then return t end
 end
 end
 local function saveOnline() writeJson(FILE.ONLINE, {gistId = online.gistId, feedUrl = feedUrl, notice = online.notice, webhook = online.webhook, helpHook = online.helpHook, board = online.board, messages = online.messages, muted = online.muted, clearAt = online.clearAt}) end
-local function feedJson() return HttpService:JSONEncode({v = 1, pages = adminPages, notice = online.notice, webhook = online.webhook, helpWebhook = online.helpHook, board = L.DEFAULT_BOARD, admins = adminList, messages = online.messages, muted = online.muted, clearAt = online.clearAt}) end
+-- the gist only gets the owner's scripts: scripts posted by other admins live on the npoint board only
+function L.gistPages()
+local out = {}
+for name, list in pairs(adminPages) do
+local l = {}
+for _, e in ipairs(list) do
+if not L.isAdminPost(name, e) then l[#l + 1] = e end
+end
+out[name] = l
+end
+return out
+end
+local function feedJson() return HttpService:JSONEncode({v = 1, pages = L.gistPages(), notice = online.notice, webhook = online.webhook, helpWebhook = online.helpHook, board = L.DEFAULT_BOARD, admins = adminList, messages = online.messages, muted = online.muted, clearAt = online.clearAt}) end
 local function gistCall(method, url, body)
 local token = readToken()
 if not httpReq then return nil, "this executor has no request function" end
@@ -754,6 +815,8 @@ end
 local function publishNow(manual)
 if not adminOk() then return end
 task.spawn(function()
+if L.boardPublish then L.boardPublish(manual) end
+if not readToken() and not L.owner() then return end
 local files = {[FILE.GIST] = {content = feedJson()}}
 local data, err
 if online.gistId then
@@ -778,9 +841,10 @@ task.delay(1.5, function() if L.ping then L.ping("feed") end end)
 end)
 end
 local schedulePublish = debounce(1.5, function() publishNow(false) end)
+L.scheduleBoard = debounce(2, function() if L.boardPublish then L.boardPublish(false) end end)
 local function syncAdmin()
 writeLocal()
-if isAdmin and readToken() then schedulePublish() end
+if isAdmin and readToken() then schedulePublish() elseif isAdmin then L.scheduleBoard() end
 end
 local SECTIONS = {
 {name = "Dua's favorites", icon = "⭐"}, {name = "NPCs", icon = "🧍"},
@@ -788,6 +852,7 @@ local SECTIONS = {
 }
 local ITEMS = {
 {name = L.DUA, icon = "📜"},
+{name = "Completed script request", icon = "✅", custom = true, sub = "Scripts Dua finished for players' requests"},
 {name = L.FAVP, icon = "❤️"},
 {name = ADD_PAGE, icon = "➕"},
 {name = "ScriptBlox scripts", icon = "🌐", custom = true, sub = "Live from scriptblox.com, nothing saved on your device"},
@@ -863,6 +928,16 @@ local winStroke = outline(win, 2, 0.25)
 new("UIGradient", {Rotation = 90, Transparency = NumberSequence.new({
 NumberSequenceKeypoint.new(0, 0), NumberSequenceKeypoint.new(1, 0.7),
 })}, winStroke)
+L.bgImg = new("ImageLabel", {
+Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Crop, Image = "",
+ImageTransparency = 0.65, Visible = false, ZIndex = 0,
+}, win)
+round(L.bgImg, 12)
+L.bgDim = new("Frame", {
+Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.6,
+BorderSizePixel = 0, Visible = false, ZIndex = 0,
+}, win)
+round(L.bgDim, 12)
 local inner = new("Frame", {
 Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0),
 BackgroundTransparency = 0.55, BorderSizePixel = 0, ZIndex = 0,
@@ -1003,8 +1078,30 @@ local hamImg = new("ImageLabel", {
 AnchorPoint = V2(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UO(24, 24), BackgroundTransparency = 1,
 Image = "rbxthumb://type=Asset&id=80894127006690&w=150&h=150", ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1, ZIndex = 10,
 }, hamBtn)
+function L.b64dec(str)
+local A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
+local map = {}
+for i = 1, 64 do map[A:sub(i, i)] = i - 1 end
+local out, n, acc, bits = {}, 0, 0, 0
+for i = 1, #str do
+local v = map[str:sub(i, i)]
+if v then
+acc, bits = acc * 64 + v, bits + 6
+if bits >= 8 then
+bits = bits - 8
+local p = 2 ^ bits
+local b = math.floor(acc / p)
+n = n + 1
+out[n] = string.char(b)
+acc = acc - b * p
+end
+end
+end
+return table.concat(out)
+end
+L.ICON_B64 = "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"
 task.spawn(function()
-local ICON_ID, ICON_FILE = "80894127006690", "DuaLibrary_Icon_v3.png"
+local ICON_ID, ICON_FILE = "80894127006690", "DuaLibrary_Icon_v4.png"
 local function loaded(secs)
 local t0 = os.clock()
 while os.clock() - t0 < secs and not hamImg.IsLoaded do task.wait(0.2) end
@@ -1020,21 +1117,8 @@ end
 local custom = typeof(getcustomasset) == "function" and getcustomasset or (typeof(getsynasset) == "function" and getsynasset)
 if custom and canSave then
 local ok = pcall(function()
-if isfile(ICON_FILE) and #readfile(ICON_FILE) > 8000 then setIcon(custom(ICON_FILE)) return end
-local A = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/"
-local map = {}
-for i = 1, 64 do map[A:sub(i, i)] = i - 1 end
-local out, acc, bits = {}, 0, 0
-for ch in ("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"):gmatch(".") do
-acc, bits = acc * 64 + map[ch], bits + 6
-if bits >= 8 then
-bits = bits - 8
-local v = math.floor(acc / 2 ^ bits)
-out[#out + 1] = string.char(v)
-acc = acc - v * 2 ^ bits
-end
-end
-writefile(ICON_FILE, table.concat(out))
+if isfile(ICON_FILE) and #readfile(ICON_FILE) > 1000 then setIcon(custom(ICON_FILE)) return end
+writefile(ICON_FILE, L.b64dec(L.ICON_B64))
 setIcon(custom(ICON_FILE))
 end)
 if ok then loaded(1.5); return show() end
@@ -1122,7 +1206,7 @@ end)
 end
 local function selectItem(name)
 selected = name
-if name == ADD_PAGE and L.commPull and os.clock() - (L.commLast or -99) > 15 then L.commPull() end
+if name == ADD_PAGE and L.commPull and os.clock() - (L.commLast or -99) > 8 then L.commPull() end
 for n, row in pairs(rows) do
 tween(row, FAST, {BackgroundTransparency = (n == name) and 0.5 or 1})
 end
@@ -1279,6 +1363,23 @@ end
 local items = {}
 for _, nm in ipairs(L.matchGames(q, 3)) do
 items[#items + 1] = {label = "🎮 " .. nm .. (nm == L.curGame and "  (this game)" or ""), name = nm}
+end
+local qt = q:match("^%s*(.-)%s*$")
+if #qt >= 2 and L.robloxSearch then
+if #items == 0 then items[1] = {label = "🔎 Searching all of Roblox..."} end
+setSug(items)
+local mine = {}
+for _, it in ipairs(items) do if it.name then mine[#mine + 1] = it end end
+task.delay(0.45, function()
+if my ~= sugTok then return end
+L.robloxSearch(qt, function(res)
+if my ~= sugTok then return end
+local mixed = L.mixGames(res or {}, mine, 3)
+if #mixed == 0 then mixed = {{label = "No games found, you can type your own"}} end
+setSug(mixed)
+end)
+end)
+return
 end
 setSug(items)
 end
@@ -1534,6 +1635,13 @@ if name ~= ADD_PAGE then return entriesOf[name], {} end
 local out, shared = {}, {}
 for _, e in ipairs(adminPages[ADD_PAGE]) do out[#out + 1] = e; shared[e] = true end
 for _, e in ipairs(L.comm or {}) do out[#out + 1] = e end
+for _, e in ipairs(L.pending or {}) do
+local dup = false
+for _, x in ipairs(L.comm or {}) do if x.uid == e.u and x.t == e.t and x.name == e.n:sub(1, 40) then dup = true break end end
+if not dup then
+out[#out + 1] = {name = e.n:sub(1, 40), code = e.c, comm = true, pending = true, by = e.a, uid = e.u, t = e.t, desc = e.d, game = e.g, gid = e.gi, kinds = e.k}
+end
+end
 for _, e in ipairs(userScripts) do out[#out + 1] = e end
 return out, shared
 end
@@ -1630,7 +1738,7 @@ end
 local byName = entry.comm and entry.by or (isShared and (entry.by or "admin")) or nil
 if byName then
 local byLbl = text(tile, {
-Position = UO(10, 70), Size = U2(1, -20, 0, 12), Text = "by " .. byName, TextSize = 10,
+Position = UO(10, 70), Size = U2(1, -20, 0, 12), Text = "by " .. byName .. (entry.pending and "  ⏳ sending" or ""), TextSize = 10,
 Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = true,
 TextTransparency = 0.1, ZIndex = 23,
 })
@@ -1710,7 +1818,7 @@ task.delay(0.14, function()
 if tile.Parent then tween(tile, FAST, {BackgroundColor3 = TILE}) end
 end)
 end)
-if (name == ADD_PAGE and (not entry.comm or isAdmin or entry.uid == tostring(LP.UserId))) or (L.owner() and L.isSection[name]) then
+if (name == ADD_PAGE and (not entry.comm or isAdmin or entry.uid == tostring(LP.UserId))) or (L.isSection[name] and (L.owner() or (isAdmin and verName and type(entry.by) == "string" and entry.by:lower() == verName:lower()))) then
 local del = new("TextButton", {
 AnchorPoint = V2(1, 0), Position = U2(1, -28, 0, 5), Size = UO(18, 18),
 BackgroundColor3 = RED, BackgroundTransparency = 0.15, BorderSizePixel = 0,
@@ -1729,6 +1837,7 @@ if sharedList and isAdmin and not adminOk() then return end
 local list = isShared and adminPages[ADD_PAGE] or entriesOf[name]
 local at = table.find(list, entry)
 if at then
+if L.boardMarkDel then L.boardMarkDel(name, entry) end
 table.remove(list, at)
 if sharedList then syncAdmin() else persist(name) end
 renderPage(name)
@@ -1782,6 +1891,7 @@ return flashRed(L.m.gameStroke)
 end
 local entry = {name = nm, code = normalizeCode(code), desc = desc ~= "" and desc or nil, by = (modalPage == ADD_PAGE) and (verName or LP.Name) or nil,
 game = gname ~= "" and gname or nil, gid = gid and tostring(gid):sub(1, 15) or nil, kinds = kinds ~= "" and kinds or nil, t = os.time()}
+if modalPage ~= ADD_PAGE and isAdmin and not L.owner() then entry.by = verName or LP.Name end
 local toShared = modalPage ~= ADD_PAGE or S.shareAdd
 if modalPage == ADD_PAGE and S.shareAdd and not isAdmin and L.commPush(nm, entry.code, entry.desc, entry.game, entry.gid, entry.kinds) then
 modal.Visible = false
@@ -2004,6 +2114,8 @@ return
 end
 L.saveIfChanged(FILE.FEED, {pages = L.packPages(fp)})
 fp = migrate(fp)
+local bp = L.boardFetch()
+if bp then L.boardMergeInto(fp, bp) end
 for name, list in pairs(adminPages) do
 if name == ADD_PAGE then
 for _, e in ipairs(fp[name] or {}) do
@@ -2097,6 +2209,59 @@ end
 for _, r in ipairs(refreshers) do r() end
 end
 local function applyWindow() win.BackgroundTransparency = minimized and 1 or math.min(0.92, S.winTrans + (L.cur().wt or 0)) end
+L.BGS = {
+"https://i.postimg.cc/FRbJj5dM/file-00000000c52c81f7b9ac5699e070f818.png",
+"https://i.postimg.cc/KjSXnt2D/a2c1d8b9a752a25fb26be505dcdb954b.jpg",
+"https://i.postimg.cc/sXDfD3RG/0d1984a0e2894f4eb79332c20b1f8e45.jpg",
+}
+-- background image: translucent so text stays readable; bars and sidebar become see-through over it
+function L.applyBg()
+local st = L.cur()
+local img = S.bgOn and (st.img or S.bgUrl ~= "") and true or false
+local on = img and not minimized
+L.bgImg.Visible, L.bgDim.Visible = on, on
+L.bgImg.ImageTransparency = 1 - S.bgVis
+bar.BackgroundTransparency = on and (st.barT or 0.38) or 0
+mask.Visible = not minimized and not on
+sidebar.BackgroundTransparency = on and (st.sbT or 0.3) or 0
+sbMask.Visible = not on
+end
+-- downloads the chosen image once, keeps it as a file, and shows it (nothing is embedded in the script)
+function L.loadBg()
+local tok = (L.bgTok or 0) + 1
+L.bgTok = tok
+task.spawn(function()
+local custom = typeof(getcustomasset) == "function" and getcustomasset or (typeof(getsynasset) == "function" and getsynasset)
+local url = S.bgUrl ~= "" and S.bgUrl or (L.BGS[S.bgPreset] or L.BGS[1])
+local function put(img) if L.bgTok == tok and L.bgImg.Parent then L.bgImg.Image = img end end
+local id = url:match("^rbxassetid://(%d+)$") or url:match("^(%d+)$")
+if id then return put("rbxassetid://" .. id) end
+if not custom or not canSave then return notify("Background", "This executor can't load image links", nil, 4) end
+local hash = 5381
+for i = 1, #url do hash = (hash * 33 + url:byte(i)) % 4294967296 end
+local ok, img = pcall(function()
+for _, e in ipairs({"png", "jpg"}) do
+local ff = "DuaLibrary_BG_" .. hash .. "." .. e
+if isfile(ff) and #readfile(ff) > 100 then return custom(ff) end
+end
+local body = game:HttpGet(url)
+if type(body) ~= "string" or #body < 100 then error("empty") end
+if #body > 8000000 then error("big") end
+local e = body:sub(1, 4) == "\137PNG" and "png" or (body:sub(1, 3) == "\255\216\255" and "jpg") or nil
+if not e then error("type") end
+local ff = "DuaLibrary_BG_" .. hash .. "." .. e
+writefile(ff, body)
+return custom(ff)
+end)
+if ok and img then
+put(img)
+else
+notify("Background", "Couldn't load the background image. Check the link (direct PNG or JPG, max 8 MB).", nil, 5)
+end
+end)
+end
+L.applyBg()
+L.loadBg()
 local function applyShadow() shadow.Visible = S.shadowOn end
 local function applyParticles()
 for i, p in ipairs(parts) do p.o.Visible = S.particlesOn and i <= S.particleCount end
@@ -2156,9 +2321,10 @@ local col = st.pcol and st.pcol[p.ci] or th.pal[p.ci]
 if p.kind == "triangle" then p.o.TextColor3 = col else p.o.BackgroundColor3 = col end
 end
 for _, ui in pairs(pageUI) do renderPage(ui.current) end
+L.applyBg()
 end
 local function applyAll()
-applyWindow(); applyShadow(); applyParticles(); applyTheme(); L.applyStyle(); L.applyFont(); bump()
+applyWindow(); applyShadow(); applyParticles(); applyTheme(); L.applyStyle(); L.applyFont(); L.applyBg(); bump()
 end
 local sPage
 sPage = new("ScrollingFrame", {
@@ -2291,6 +2457,56 @@ end
 sliderRow("Custom hue", "hue", 0, 1, function(v) return math.floor(v * 360) .. "°" end, applyTheme, nil, true)
 sliderRow("Color strength", "sat", 0.05, 1, function(v) return math.floor(v * 100 + 0.5) .. "%" end, applyTheme)
 sliderRow("Window see-through", "winTrans", 0, 0.6, function(v) return math.floor(v / 0.6 * 100 + 0.5) .. "%" end, applyWindow)
+sectionHeader("Background")
+toggleRow("Background image", "bgOn", function() L.applyBg() end)
+sliderRow("Background visibility", "bgVis", 0.05, 0.9, function(v) return math.floor(v * 100 + 0.5) .. "%" end, function() L.applyBg() end)
+do
+local box
+local prow = new("Frame", {Size = U2(1, 0, 0, 34), BackgroundTransparency = 1, ZIndex = 20, LayoutOrder = nextOrder()}, sPage)
+new("UIGridLayout", {CellSize = U2(1 / 3, -4, 0, 30), CellPadding = UO(4, 4), SortOrder = Enum.SortOrder.LayoutOrder}, prow)
+local pbtn = {}
+local function recolor()
+for i, b in ipairs(pbtn) do
+local on = S.bgUrl == "" and S.bgPreset == i
+b.BackgroundColor3 = on and accentColor or Color3.fromRGB(70, 70, 88)
+b.BackgroundTransparency = on and 0.05 or 0.45
+end
+end
+for i = 1, 3 do
+local b = button(prow, 0, 0, 10, 10, "Default " .. i, WHITE, 0.45, 21)
+b.LayoutOrder, b.TextSize = i, 12
+fit(b, 12, 7)
+pbtn[i] = b
+b.MouseButton1Click:Connect(function()
+S.bgPreset, S.bgUrl = i, ""
+if box then box.Text = "" end
+scheduleSave()
+recolor()
+L.applyBg()
+L.loadBg()
+end)
+end
+refreshers[#refreshers + 1] = recolor
+recolor()
+local row = new("Frame", {Size = U2(1, 0, 0, 34), BackgroundColor3 = WHITE, BackgroundTransparency = 0.9, BorderSizePixel = 0, ZIndex = 20, LayoutOrder = nextOrder()}, sPage)
+round(row, 8)
+box = inputBox(row, 6, 4, 190, 26, "Your own background: paste a direct image link (.png / .jpg)", false, 21)
+box.Size, box.Text = U2(1, -100, 0, 26), S.bgUrl
+local b = button(row, 0, 0, 80, 26, "Set", WHITE, 0.6, 21)
+b.AnchorPoint, b.Position, b.TextSize = V2(1, 0.5), U2(1, -6, 0.5, 0), 12
+b.MouseButton1Click:Connect(function()
+local t = box.Text:match("^%s*(.-)%s*$")
+if t ~= "" and not (t:find("^https?://%S+$") or t:find("^rbxassetid://%d+$") or t:find("^%d+$")) then
+return notify("Background", "That isn't an image link", nil, 3)
+end
+S.bgUrl = t
+scheduleSave()
+recolor()
+L.applyBg()
+L.loadBg()
+notify("Background", t == "" and ("Back to Default " .. S.bgPreset) or "Loading your image...", nil, 3)
+end)
+end
 sectionHeader("Particles")
 toggleRow("Particles", "particlesOn", applyParticles)
 sliderRow("Amount", "particleCount", 0, PARTICLE_MAX, function(v) return tostring(math.floor(v)) end, applyParticles, 1)
@@ -2679,6 +2895,13 @@ if not url then return end
 if L.commBusy and os.clock() - (L.commBusyAt or 0) < 20 then return end
 L.commBusy, L.commBusyAt, L.commLast = true, os.clock(), os.clock()
 task.spawn(function()
+local surl0 = L.shareBoardOf()
+local sd0, sdone0
+if surl0 then
+task.spawn(function() sd0 = L.bRead(surl0); sdone0 = true end)
+else
+sdone0 = true
+end
 local d = L.bRead(url)
 L.commBusy = false
 if not d then
@@ -2696,9 +2919,11 @@ L.favCount = fc
 end
 L.dmList = type(d.dm) == "table" and d.dm or {}
 L.processDm()
-local surl = L.shareBoardOf()
+local surl = surl0
 if surl then
-local sd = L.bRead(surl)
+local t0 = os.clock()
+while not sdone0 and os.clock() - t0 < 10 do task.wait(0.05) end
+local sd = sd0
 if sd then d.shared = type(sd.shared) == "table" and sd.shared or {}
 else d.shared = {}; L.commErr = "share board: " .. tostring(L.boardErr or "can't reach it") end
 end
@@ -2710,7 +2935,12 @@ L.commDone(e)
 elseif not e.busy and e.tries < 6 then
 e.busy, e.tries = true, e.tries + 1
 task.spawn(function()
-if L.commWrite(e) then L.commDone(e); notify("Shared", "Your script is now on the board", nil, 3); L.commBusy = false; L.commPull() end
+if L.commWrite(e) then
+if not e.sent then notify("Shared", "Your script is now on the board", nil, 3) end
+e.sent = true
+L.commBusy = false
+L.commPull()
+end
 e.busy = false
 end)
 end
@@ -2764,10 +2994,7 @@ if tostring(d.shared[i].u) == e.u then table.remove(d.shared, i); mine = mine - 
 end
 local function bytes() local n = 0 for _, x in ipairs(d.shared) do n = n + #tostring(x.c) end return n end
 while #d.shared > 1 and (#d.shared > 200 or bytes() > 600000) do table.remove(d.shared, 1) end
-if L.bWrite(url, d) then
-local v = L.bRead(url)
-if v and L.commHas(v, e) then return true end
-end
+if L.bWrite(url, d) then return true end
 end
 task.wait(0.6 * attempt)
 end
@@ -2880,16 +3107,17 @@ if #code > 30000 then notify("Too long", "Shared scripts can be up to 30,000 cha
 local e = {n = nm, c = code, d = (type(desc) == "string" and desc ~= "") and desc:sub(1, 300) or nil, u = tostring(LP.UserId), a = LP.Name, t = os.time(), tries = 1,
 g = gameName, gi = gameId, k = kinds}
 table.insert(L.pending, e)
+renderPage(ADD_PAGE)
 task.spawn(function()
 e.busy = true
 local ok = L.commWrite(e)
 e.busy = false
 if ok then
-L.commDone(e)
+e.sent = true
 notify("Shared", "Everyone can see it on Share script & Find script", nil, 3)
-L.commBusy = false
-L.commPull()
 if L.ping then L.ping("board") end
+L.commBusy = false
+task.delay(0.6, function() L.commPull() end)
 else
 notify("Share pending", "Couldn't confirm it yet" .. (L.boardErr and (" (" .. L.boardErr .. ")") or "") .. ". It keeps retrying by itself", nil, 5)
 end
@@ -3019,6 +3247,9 @@ end
 function L.commDelete(e)
 local url = L.shareBoardOf() or L.boardOf()
 if not url then return end
+for i, p in ipairs(L.pending) do
+if p.u == e.uid and p.t == e.t then table.remove(L.pending, i) break end
+end
 for i, x in ipairs(L.comm or {}) do if x == e then table.remove(L.comm, i) break end end
 renderPage(ADD_PAGE)
 task.spawn(function()
@@ -4258,11 +4489,491 @@ minBtn.Size = minimized and UO(32, 32) or UO(24, 24)
 minBtn.BackgroundColor3 = minimized and Color3.new(0, 0, 0) or WHITE
 minBtn.BackgroundTransparency = minimized and 0 or 0.7
 applyWindow()
+L.applyBg()
 L.grip.Visible = not minimized
 inner.Visible = not minimized
 L.miniImg.Visible = minimized and L.iconOK == true
 minBtn.Text = minimized and (L.iconOK and "" or "+") or "-"
 end)
+-- ✅ Completed script request page
+-- Everyone can see the finished scripts. Only admins/owner can add or delete them.
+do
+(function()
+local CSR = "Completed script request"
+-- PASTE YOUR NEW npoint.io LINK HERE, e.g. "https://api.npoint.io/xxxxxxxxxxxxxxxxxxxx"
+L.COMPLETED_BOARD = "https://api.npoint.io/045e748727605bd85fd9"
+local host = pages[CSR]
+local MAXLIST, MAXCODE = 100, 30000
+local GREEN = Color3.fromRGB(34, 160, 72)
+local R = {list = {}, busy = false, busyAt = 0, saving = false, at = nil, err = nil}
+local function boardUrl()
+local u = L.COMPLETED_BOARD
+if type(u) == "string" and u:match("^https://api%.npoint%.io/[%w]+$") then return u end
+end
+local function clip(s, n)
+s = tostring(s or "")
+local len = utf8.len(s)
+if len and len > n then return s:sub(1, utf8.offset(s, n + 1) - 1) end
+if not len and #s > n then return s:sub(1, n) end
+return s
+end
+local function trim(s) return (tostring(s or ""):match("^%s*(.-)%s*$")) end
+local function pull()
+local url = boardUrl()
+if not url then return nil, "no board link set" end
+local d = L.bRead(url)
+if not d then return nil, L.boardErr or "can't reach the board" end
+local out = {}
+if type(d.requests) == "table" then
+for _, e in ipairs(d.requests) do
+if type(e) == "table" and type(e.name) == "string" and type(e.code) == "string" then out[#out + 1] = e end
+end
+end
+return out
+end
+local function sortList(list)
+table.sort(list, function(a, b) return (tonumber(a.t) or 0) > (tonumber(b.t) or 0) end)
+end
+
+local status = text(host, {
+Position = UO(12, 47), Size = U2(1, -24, 0, 18), Text = "", TextSize = 11, TextTransparency = 0.3,
+TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 21,
+})
+local scroll = new("ScrollingFrame", {
+Position = UO(10, 70), Size = U2(1, -20, 1, -78), BackgroundTransparency = 1, BorderSizePixel = 0,
+ScrollBarThickness = 3, ScrollBarImageColor3 = WHITE, ZIndex = 21, CanvasSize = UDim2.new(),
+AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, host)
+new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
+new("UIPadding", {PaddingRight = UDim.new(0, 6)}, scroll)
+
+local function lbl(parent, t, size, trans, order)
+return text(parent, {
+Size = U2(1, 0, 0, size + 4), AutomaticSize = Enum.AutomaticSize.Y, Text = t, TextSize = size,
+TextTransparency = trans, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top,
+TextWrapped = true, ZIndex = 22, LayoutOrder = order,
+})
+end
+
+local refresh
+local function addCard(e, i)
+local c = new("Frame", {
+Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = WHITE,
+BackgroundTransparency = 0.9, BorderSizePixel = 0, ZIndex = 21, LayoutOrder = i,
+}, scroll)
+round(c, 8)
+new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, c)
+new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, c)
+lbl(c, "✅ " .. clip(e.name, 60), 15, 0, 1)
+local kw = L.kindWords(e.kinds)
+local info = "For " .. clip(e.player or "?", 40)
+if type(e.game) == "string" and e.game ~= "" then info = info .. "   •   " .. clip(e.game, 60) end
+if kw ~= "" then info = info .. "   •   " .. kw end
+lbl(c, info, 12, 0.2, 2)
+local d = trim(e.desc)
+if d ~= "" then lbl(c, clip(d, 400), 12, 0.35, 3) end
+local okd, ds = pcall(os.date, "%d %b %Y", tonumber(e.t) or 0)
+lbl(c, "Completed " .. (okd and ds or "") .. (type(e.by) == "string" and e.by ~= "" and (" by " .. clip(e.by, 30)) or ""), 10, 0.5, 4)
+local row = new("Frame", {Size = U2(1, 0, 0, 30), BackgroundTransparency = 1, ZIndex = 22, LayoutOrder = 5}, c)
+new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Center}, row)
+local run = button(row, 0, 0, 80, 26, "Run", GREEN, 0, 23)
+run.MouseButton1Click:Connect(function() runScript({name = e.name, code = e.code}) end)
+local cp = button(row, 0, 0, 80, 26, "Copy", WHITE, 0.8, 23)
+cp.MouseButton1Click:Connect(function()
+if typeof(setclipboard) == "function" then
+setclipboard(e.code)
+notify("Copied", clip(e.name, 40))
+else
+notify("Can't copy", "This executor has no setclipboard", nil, 3)
+end
+end)
+if isAdmin then
+local del = button(row, 0, 0, 80, 26, "Delete", RED, 0.3, 23)
+del.MouseButton1Click:Connect(function()
+askConfirm('Remove "' .. clip(e.name, 40) .. '" from completed requests?', function()
+if not adminOk() then return end
+local url = boardUrl()
+if not url then return end
+task.spawn(function()
+local list, err = pull()
+if not list then return notify("Completed requests", "Couldn't reach the board (" .. tostring(err) .. ")", nil, 4) end
+for k = #list, 1, -1 do
+local x = list[k]
+if (e.id and x.id == e.id) or (not e.id and x.name == e.name and x.code == e.code and x.t == e.t) then table.remove(list, k) end
+end
+if not L.bWrite(url, {requests = list}) then
+return notify("Completed requests", "Couldn't save (" .. tostring(L.boardErr) .. ")", nil, 4)
+end
+sortList(list)
+R.list, R.at = list, os.time()
+L.csrRender()
+notify("Removed", clip(e.name, 40), nil, 2)
+end)
+end)
+end)
+end
+end
+
+function L.csrRender()
+for _, c in ipairs(scroll:GetChildren()) do
+if not c:IsA("UIListLayout") and not c:IsA("UIPadding") then c:Destroy() end
+end
+if not boardUrl() then
+status.Text = isAdmin and "Not set up yet: paste your npoint.io link into L.COMPLETED_BOARD" or "Not set up yet"
+return
+end
+if R.err then
+status.Text = "board: " .. tostring(R.err)
+elseif R.at then
+local ok, tm = pcall(os.date, "%H:%M", R.at)
+status.Text = "synced " .. (ok and tm or "") .. ", " .. #R.list .. " completed"
+else
+status.Text = "loading..."
+end
+for i, e in ipairs(R.list) do addCard(e, i) end
+if #R.list == 0 and R.at then
+text(scroll, {
+Size = U2(1, 0, 0, 40), Text = "No completed scripts yet.", TextSize = 13, TextTransparency = 0.4,
+TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22, LayoutOrder = 1,
+})
+end
+end
+
+function refresh(manual)
+if not boardUrl() then L.csrRender() return end
+if R.busy and os.clock() - R.busyAt < 15 then return end
+R.busy, R.busyAt = true, os.clock()
+if not R.at then status.Text = "loading..." end
+task.spawn(function()
+local list, err = pull()
+R.busy = false
+if list then
+sortList(list)
+R.list, R.err, R.at = list, nil, os.time()
+else
+R.err = err
+end
+L.csrRender()
+if manual and not list then notify("Completed requests", "Couldn't reach the board (" .. tostring(err) .. ")", nil, 4) end
+end)
+end
+
+local rf = button(host, 0, 0, 74, 26, "Refresh", WHITE, 0.8, 22)
+rf.AnchorPoint, rf.Position, rf.TextSize = V2(1, 0), U2(1, -10, 0, 8), 12
+rf.MouseButton1Click:Connect(function() refresh(true) end)
+host:GetPropertyChangedSignal("Visible"):Connect(function()
+if host.Visible and (not R.at or os.time() - R.at > 20) then refresh(false) end
+end)
+L.csrRender()
+
+-- add form (admins and owner only)
+if isAdmin then
+local addBtn = button(host, 0, 0, 112, 26, "+ Add script", GREEN, 0, 22)
+addBtn.AnchorPoint, addBtn.Position, addBtn.TextSize = V2(1, 0), U2(1, -90, 0, 8), 12
+local form = new("Frame", {
+Size = U2(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(24, 24, 30), BackgroundTransparency = 0.05,
+BorderSizePixel = 0, Active = true, Visible = false, ZIndex = 30,
+}, host)
+round(form, 10)
+text(form, {
+Position = UO(12, 6), Size = U2(1, -24, 0, 22), Text = "Add completed script", TextSize = 16,
+TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31,
+})
+local fs = new("ScrollingFrame", {
+Position = UO(10, 34), Size = U2(1, -20, 1, -84), BackgroundTransparency = 1, BorderSizePixel = 0,
+ScrollBarThickness = 3, ScrollBarImageColor3 = WHITE, ZIndex = 31, CanvasSize = UDim2.new(),
+AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, form)
+new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, fs)
+new("UIPadding", {PaddingRight = UDim.new(0, 6)}, fs)
+local ord = 0
+local function field(label, h, multi, placeholder)
+ord = ord + 1
+text(fs, {
+Size = U2(1, 0, 0, 14), Text = label, TextSize = 10, TextTransparency = 0.3,
+TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32, LayoutOrder = ord,
+})
+ord = ord + 1
+local box = inputBox(fs, 0, 0, 10, h, placeholder, multi, 32)
+box.Size, box.LayoutOrder = U2(1, 0, 0, h), ord
+if multi and label ~= "SCRIPT" then box.Font = Enum.Font.Nunito end
+return box
+end
+local f = {}
+local function sugList(maxN, onPick)
+ord = ord + 1
+local holder = new("Frame", {
+Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, Visible = false,
+ZIndex = 32, LayoutOrder = ord,
+}, fs)
+new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, holder)
+local btns, data = {}, {}
+for i = 1, maxN do
+local b = new("TextButton", {
+Size = U2(1, 0, 0, 24), LayoutOrder = i, BackgroundColor3 = Color3.fromRGB(58, 58, 84), BorderSizePixel = 0,
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 12, Text = "", TextColor3 = WHITE,
+TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Visible = false, ZIndex = 33,
+}, holder)
+round(b, 6)
+new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 6)}, b)
+b.MouseButton1Click:Connect(function()
+local it = data[i]
+if it and it.name then onPick(it) end
+end)
+btns[i] = b
+end
+local obj = {}
+function obj.set(items)
+local any = false
+for i, b in ipairs(btns) do
+local it = items[i]
+data[i] = it
+b.Visible = it ~= nil
+if it then b.Text = it.label; any = true end
+end
+holder.Visible = any
+end
+return obj
+end
+local function nameScore(q, s2)
+s2 = s2:lower()
+if s2:sub(1, #q) == q then return 0 end
+if (" " .. s2):find(" " .. q, 1, true) then return 1 end
+if s2:find(q, 1, true) then return 2 end
+if #q >= 3 then
+local lim = #q >= 6 and 2 or 1
+local d = L.lev(q, s2:sub(1, #q))
+if d <= lim then return 3 + d end
+end
+end
+-- closest player names: people in this server first, then people from past requests
+local function nameMatches(q, n)
+q = trim(q):lower()
+local pool, seen = {}, {}
+local function add(nm, alt, tag)
+if type(nm) == "string" and nm ~= "" and not seen[nm:lower()] then
+seen[nm:lower()] = true
+pool[#pool + 1] = {name = nm, alt = alt, tag = tag}
+end
+end
+for _, p in ipairs(Players:GetPlayers()) do add(p.Name, p.DisplayName, "in server") end
+for _, e in ipairs(R.list) do add(e.player, nil, "past request") end
+local out = {}
+if q == "" then
+for i = 1, math.min(n, #pool) do out[i] = pool[i] end
+return out
+end
+local scored = {}
+for i, m in ipairs(pool) do
+local sc = nameScore(q, m.name)
+if m.alt and m.alt ~= m.name then
+local sc2 = nameScore(q, m.alt)
+if sc2 and (not sc or sc2 < sc) then sc = sc2 end
+end
+if sc then scored[#scored + 1] = {m = m, sc = sc, i = i} end
+end
+table.sort(scored, function(a, b) if a.sc ~= b.sc then return a.sc < b.sc end return a.i < b.i end)
+for i = 1, math.min(n, #scored) do out[i] = scored[i].m end
+return out
+end
+f.player = field("PLAYER NAME", 30, false, "Start typing a username")
+local pset = false
+local pSug
+pSug = sugList(4, function(it)
+pset = true
+f.player.Text = it.name
+pset = false
+pSug.set({})
+end)
+local function refreshPlayers()
+local items = {}
+local typed = trim(f.player.Text):lower()
+for _, m in ipairs(nameMatches(f.player.Text, 4)) do
+local lab = "👤 " .. m.name
+if m.alt and m.alt ~= m.name then lab = lab .. "  (" .. m.alt .. ")" end
+lab = lab .. "  ·  " .. m.tag
+items[#items + 1] = {label = lab, name = m.name}
+end
+if #items == 1 and items[1].name:lower() == typed then items = {} end
+pSug.set(items)
+end
+f.player:GetPropertyChangedSignal("Text"):Connect(function()
+if not pset then refreshPlayers() end
+end)
+-- Keyless / Universal / FE
+ord = ord + 1
+text(fs, {
+Size = U2(1, 0, 0, 14), Text = "TYPE (Universal means no game needed)", TextSize = 10, TextTransparency = 0.3,
+TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 32, LayoutOrder = ord,
+})
+ord = ord + 1
+local krow = new("Frame", {Size = U2(1, 0, 0, 28), BackgroundTransparency = 1, ZIndex = 32, LayoutOrder = ord}, fs)
+new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 6), VerticalAlignment = Enum.VerticalAlignment.Center}, krow)
+local kinds, kbtn = {}, {}
+local applyUni
+local function recolorK()
+for i, kd in ipairs(L.KINDS) do
+local on = kinds[kd[1]]
+kbtn[i].BackgroundColor3 = on and kd[3] or Color3.fromRGB(40, 40, 56)
+kbtn[i].Text = (on and "✔ " or "") .. kd[2]
+end
+end
+for i, kd in ipairs(L.KINDS) do
+local b = button(krow, 0, 0, 96, 26, kd[2], Color3.fromRGB(40, 40, 56), 0, 33)
+b.TextSize = 12
+kbtn[i] = b
+b.MouseButton1Click:Connect(function()
+kinds[kd[1]] = not kinds[kd[1]] or nil
+recolorK()
+applyUni()
+end)
+end
+local function kindStr()
+local out = ""
+for _, kd in ipairs(L.KINDS) do if kinds[kd[1]] then out = out .. kd[1] end end
+return out
+end
+f.game = field("GAME", 30, false, "Type a game, or a game ID")
+local gid, gtok, gset = nil, 0, false
+local gSug
+gSug = sugList(4, function(it)
+gset = true
+f.game.Text = it.name
+gset = false
+gid = it.gid
+gSug.set({})
+end)
+local function refreshGames()
+gtok = gtok + 1
+local my = gtok
+local q = f.game.Text
+local idq = q:match("^%s*(%d+)%s*$")
+if idq and #idq >= 3 then
+gSug.set({{label = "🔎 Looking up game ID " .. idq .. "..."}})
+L.gameFromId(idq, function(nm)
+if my ~= gtok then return end
+if nm then
+gSug.set({{label = "🎮 " .. nm .. "  (ID " .. idq .. ")", name = nm, gid = idq}})
+else
+gSug.set({{label = "No game found for " .. idq .. ", tap to use the ID", name = "Game ID " .. idq, gid = idq}})
+end
+end)
+return
+end
+local items = {}
+for _, nm in ipairs(L.matchGames(q, 4)) do
+items[#items + 1] = {label = "🎮 " .. nm .. (nm == L.curGame and "  (this game)" or ""), name = nm}
+end
+local qt = trim(q)
+if #qt >= 2 and L.robloxSearch then
+if #items == 0 then items[1] = {label = "🔎 Searching all of Roblox..."} end
+gSug.set(items)
+local mine = {}
+for _, it in ipairs(items) do if it.name then mine[#mine + 1] = it end end
+task.delay(0.45, function()
+if my ~= gtok then return end
+L.robloxSearch(qt, function(res)
+if my ~= gtok then return end
+local mixed = L.mixGames(res or {}, mine, 4)
+if #mixed == 0 then mixed = {{label = "No games found, you can type your own"}} end
+gSug.set(mixed)
+end)
+end)
+return
+end
+gSug.set(items)
+end
+f.game:GetPropertyChangedSignal("Text"):Connect(function()
+if gset then return end
+gid = nil
+if not kinds.U then refreshGames() end
+end)
+applyUni = function()
+if kinds.U then
+gtok = gtok + 1
+gset = true
+f.game.Text = ""
+gset = false
+gid = nil
+f.game.TextEditable = false
+f.game.PlaceholderText = "Universal: no game needed"
+gSug.set({})
+else
+f.game.TextEditable = true
+f.game.PlaceholderText = "Type a game, or a game ID"
+refreshGames()
+end
+end
+f.name = field("SCRIPT NAME", 30, false, "Name of the script")
+f.desc = field("DESCRIPTION (optional)", 56, true, "What does it do?")
+f.code = field("SCRIPT", 110, true, "Paste the script, or a pastebin link")
+local save = button(form, 0, 0, 170, 34, "Add completed script", GREEN, 0, 31)
+save.AnchorPoint, save.Position = V2(0, 1), U2(0, 10, 1, -10)
+local cancel = button(form, 0, 0, 100, 34, "Cancel", WHITE, 0.85, 31)
+cancel.AnchorPoint, cancel.Position = V2(1, 1), U2(1, -10, 1, -10)
+addBtn.MouseButton1Click:Connect(function()
+if not adminOk() then return end
+form.Visible = true
+refreshPlayers()
+if not kinds.U then refreshGames() end
+end)
+cancel.MouseButton1Click:Connect(function() form.Visible = false end)
+save.MouseButton1Click:Connect(function()
+if not adminOk() then return end
+local url = boardUrl()
+if not url then return notify("Completed requests", "Paste your npoint link into L.COMPLETED_BOARD first", nil, 4) end
+if R.saving then return end
+local player, gname, sname = clip(trim(f.player.Text), 40), clip(trim(f.game.Text), 60), clip(trim(f.name.Text), 60)
+local desc, code = clip(trim(f.desc.Text), 400), f.code.Text
+if player == "" then return notify("Player name", "Choose or type who requested it", nil, 3) end
+local uni = kinds.U == true
+local gid2 = gid
+if uni then
+gname, gid2 = "", nil
+elseif gname:match("^%d+$") then
+gid2 = gid2 or gname
+gname = "Game ID " .. gname
+end
+if gname == "" and not uni then return notify("Game", "Pick a game, or tick Universal", nil, 3) end
+if sname == "" then return notify("Script name", "Give the script a name", nil, 3) end
+if code:match("^%s*$") then return notify("Script", "Paste the script or a link first", nil, 3) end
+if #code > MAXCODE then return notify("Script too long", "Max " .. MAXCODE .. " characters", nil, 3) end
+code = normalizeCode(code)
+R.saving = true
+task.spawn(function()
+local list, err = pull()
+if not list then
+R.saving = false
+return notify("Completed requests", "Couldn't reach the board (" .. tostring(err) .. ")", nil, 4)
+end
+while #list >= MAXLIST do table.remove(list, 1) end
+list[#list + 1] = {
+id = tostring(os.time()) .. tostring(math.random(100, 999)), player = player, name = sname,
+game = gname ~= "" and gname or nil, gid = gid2 and tostring(gid2):sub(1, 15) or nil,
+kinds = kindStr() ~= "" and kindStr() or nil,
+desc = desc ~= "" and desc or nil, code = code, by = verName or LP.Name, t = os.time(),
+}
+local ok = L.bWrite(url, {requests = list})
+R.saving = false
+if not ok then return notify("Completed requests", "Couldn't save (" .. tostring(L.boardErr) .. ")", nil, 4) end
+f.player.Text, f.name.Text, f.desc.Text, f.code.Text = "", "", "", ""
+for k in pairs(kinds) do kinds[k] = nil end
+recolorK()
+gset = true
+f.game.Text = ""
+gset = false
+gid = nil
+applyUni()
+form.Visible = false
+sortList(list)
+R.list, R.err, R.at = list, nil, os.time()
+L.csrRender()
+notify("Added", sname, nil, 2)
+end)
+end)
+end
+end)()
+end
 do
 local CP = "Global chat"
 local host = pages[CP]
@@ -4465,6 +5176,26 @@ if u ~= MYID and now - t < 600 then n = n + 1 end
 end
 C.foot.Text = "👥 " .. n .. " chatting  ·  Tap a name to message them privately  ·  #page links  ·  /help" .. (isAdmin and "  ·  Admins: tap a name, then Mute" or "")
 end
+-- every new chat message gets a notification; bursts are grouped into one so none are dropped
+function C.toast(p)
+C.toastQ = C.toastQ or {}
+C.toastQ[#C.toastQ + 1] = p
+if C.toastBusy then return end
+C.toastBusy = true
+task.delay(1, function()
+C.toastBusy = false
+local q = C.toastQ or {}
+C.toastQ = {}
+local n = #q
+if n == 0 then return end
+local last = q[n]
+if n == 1 then
+notify("💬 " .. tostring(last.n):sub(1, 20), tostring(last.t):sub(1, 70), nil, 4)
+else
+notify("💬 " .. n .. " new messages", tostring(last.n):sub(1, 20) .. ": " .. tostring(last.t):sub(1, 60), nil, 4)
+end
+end)
+end
 function C.handle(p, mine, primed)
 if type(p.i) ~= "string" or C.seen[p.i] then return end
 C.seen[p.i] = true
@@ -4491,20 +5222,22 @@ end
 if type(p.to) == "string" and not mine and p.to ~= LP.Name:lower() then return end
 C.addLine(p)
 if not mine and S.chatLang ~= "" and C.autoTranslate then C.autoTranslate(p) end
-if not mine and primed and type(p.to) == "string" and selected ~= CP then
+local away = selected ~= CP or minimized or not sg.Enabled
+if not mine and primed and away and p.ts > os.time() - 90 then
+if type(p.to) == "string" then
 notify("🔒 " .. p.n:sub(1, 20), p.t:sub(1, 70), nil, 4)
-elseif not mine and primed and selected ~= CP and tostring(p.t):lower():find("@" .. LP.Name:lower(), 1, true) then
+elseif tostring(p.t):lower():find("@" .. LP.Name:lower(), 1, true) then
 notify("📣 " .. p.n:sub(1, 20) .. " mentioned you", p.t:sub(1, 70), nil, 4)
-elseif not mine and primed and selected ~= CP and os.clock() - C.lastToast > 20 then
-C.lastToast = os.clock()
-notify("💬 " .. p.n:sub(1, 20), p.t:sub(1, 70), nil, 3)
+else
+C.toast(p)
+end
 end
 elseif (p.k == "a" or p.k == "p") and primed and tostring(p.u) ~= MYID then
 local w = p.k == "a" and "feed" or tostring(p.w)
 C.pingAt = C.pingAt or {}
-if os.clock() - (C.pingAt[w] or -99) < 12 then return end
+if os.clock() - (C.pingAt[w] or -99) < 4 then return end
 C.pingAt[w] = os.clock()
-task.delay(math.random() * 3, function()
+task.delay(math.random() * 0.8, function()
 if w == "feed" and not isAdmin then refreshOnline(true) elseif w == "board" and L.commPull then L.commPull() end
 end)
 end
@@ -5537,6 +6270,228 @@ if isAdmin and L.owner and L.owner() and L.makeBoard and not L.boardOf() then L.
 end)
 end
 applyAll()
+-- Dua's Library npoint feed: publishing and syncing
+do
+(function()
+-- search the whole of Roblox by game name (used by Share script and Completed script request)
+L.gsCache, L.gsCount = {}, 0
+local gsSession = HttpService:GenerateGUID(false)
+local function getJson(url)
+if httpReq then
+local ok, res = pcall(httpReq, {Url = url, Method = "GET", Headers = {Accept = "application/json"}})
+local sc = ok and type(res) == "table" and tonumber(res.StatusCode or 200) or 0
+if sc >= 200 and sc < 300 and type(res.Body) == "string" then
+local ok2, d = pcall(HttpService.JSONDecode, HttpService, res.Body)
+if ok2 and type(d) == "table" then return d end
+end
+end
+local ok, body = pcall(function() return game:HttpGet(url) end)
+if ok and type(body) == "string" then
+local ok2, d = pcall(HttpService.JSONDecode, HttpService, body)
+if ok2 and type(d) == "table" then return d end
+end
+end
+local function cleanName(n) return (tostring(n):gsub("%c", " "):sub(1, 40)) end
+local function parseSearch(d)
+if type(d.searchResults) ~= "table" then return nil end
+local out, ids = {}, {}
+for _, g in ipairs(d.searchResults) do
+if type(g) == "table" and type(g.contents) == "table" and (g.contentGroupType == nil or g.contentGroupType == "Game") then
+for _, c in ipairs(g.contents) do
+if type(c) == "table" and (c.contentType == nil or c.contentType == "Game") and #out + #ids < 8 then
+if type(c.name) == "string" and tonumber(c.rootPlaceId) then
+out[#out + 1] = {name = cleanName(c.name), gid = tostring(math.floor(tonumber(c.rootPlaceId)))}
+elseif tonumber(c.contentId) then
+ids[#ids + 1] = math.floor(tonumber(c.contentId))
+end
+end
+end
+end
+end
+if #out == 0 and #ids > 0 then
+-- the search only gave universe ids: look up their names
+local list = {}
+for i = 1, math.min(#ids, 6) do list[i] = tostring(ids[i]) end
+for _, host in ipairs({"https://games.roblox.com", "https://games.roproxy.com"}) do
+local info = getJson(host .. "/v1/games?universeIds=" .. table.concat(list, ","))
+if info and type(info.data) == "table" then
+for _, g in ipairs(info.data) do
+if type(g) == "table" and type(g.name) == "string" and tonumber(g.rootPlaceId) then
+out[#out + 1] = {name = cleanName(g.name), gid = tostring(math.floor(tonumber(g.rootPlaceId)))}
+end
+end
+break
+end
+end
+end
+return out
+end
+-- cb(list) gets {name, gid} entries, or nil if Roblox couldn't be reached
+function L.robloxSearch(q, cb)
+q = tostring(q or ""):match("^%s*(.-)%s*$")
+if #q < 2 then return cb({}) end
+local key = q:lower()
+if L.gsCache[key] then return cb(L.gsCache[key]) end
+task.spawn(function()
+local out
+for _, host in ipairs({"https://apis.roblox.com", "https://apis.roproxy.com"}) do
+local d = getJson(host .. "/search-api/omni-search?searchQuery=" .. HttpService:UrlEncode(q) .. "&sessionId=" .. gsSession .. "&pageType=all")
+if d then
+out = parseSearch(d)
+if out then break end
+end
+end
+if out then
+if L.gsCount > 80 then L.gsCache, L.gsCount = {}, 0 end
+L.gsCache[key] = out
+L.gsCount = L.gsCount + 1
+end
+cb(out)
+end)
+end
+-- mix Roblox search results with the built-in matches
+function L.mixGames(remote, localItems, n)
+local out, seen = {}, {}
+local function add(it)
+if it and it.name and #out < n and not seen[it.name:lower()] then
+seen[it.name:lower()] = true
+out[#out + 1] = it
+end
+end
+for i = 1, math.max(#remote, #localItems) do
+local r = remote[i]
+if r then add({label = "🌐 " .. r.name, name = r.name, gid = r.gid}) end
+add(localItems[i])
+end
+return out
+end
+local function me() return verName or LP.Name end
+local function keyOf(name, e) return name .. "\0" .. e.name .. "\0" .. e.code end
+L.boardDel = {}
+function L.boardMarkDel(name, e)
+if L.BOARD_SECTIONS[name] then L.boardDel[keyOf(name, e)] = true end
+end
+local function pullBoardPages()
+local url = L.boardUrlOf()
+if not url then return nil, "no board link set" end
+local d = L.bRead(url)
+if not d then return nil, L.boardErr or "can't reach the board" end
+local out = {}
+if type(d.pages) == "table" then
+for name, list in pairs(d.pages) do
+if L.BOARD_SECTIONS[name] then out[name] = cleanList(list) end
+end
+end
+return out
+end
+local busy = false
+function L.boardPublish(manual)
+if not (isAdmin and adminOk()) then return end
+if not L.boardUrlOf() then
+if manual then notify("Dua's Library board", "Paste your npoint link into L.DUA_BOARD first", nil, 4) end
+return
+end
+if busy then return end
+busy = true
+task.spawn(function()
+local url = L.boardUrlOf()
+local cur, err = pullBoardPages()
+if not cur then
+busy = false
+return notify("Dua's Library board", "Couldn't reach the board (" .. tostring(err) .. ")", nil, 4)
+end
+local out, seen = {}, {}
+local function put(name, e)
+local k = keyOf(name, e)
+if seen[k] then return end
+seen[k] = true
+out[name] = out[name] or {}
+table.insert(out[name], e)
+end
+local mine = me():lower()
+for name in pairs(L.BOARD_SECTIONS) do
+if L.owner() then
+-- owner: own scripts from this device + everything already on the board (minus what the owner removed this session)
+for _, e in ipairs(adminPages[name] or {}) do
+if not L.isAdminPost(name, e) then put(name, e) end
+end
+for _, e in ipairs(cur[name] or {}) do
+if not L.boardDel[keyOf(name, e)] then put(name, e) end
+end
+else
+-- other admins: keep everything on the board that isn't theirs, then add their own scripts from this device
+for _, e in ipairs(cur[name] or {}) do
+if not (L.isAdminPost(name, e) and e.by:lower() == mine) then put(name, e) end
+end
+for _, e in ipairs(adminPages[name] or {}) do
+if L.isAdminPost(name, e) and e.by:lower() == mine then put(name, e) end
+end
+end
+end
+local same, n, m = true, 0, 0
+for name, list in pairs(cur) do
+for _, e in ipairs(list) do
+n = n + 1
+if not seen[keyOf(name, e)] then same = false end
+end
+end
+for _ in pairs(seen) do m = m + 1 end
+if same and n == m then
+busy = false
+if manual then notify("Dua's Library board", "Already up to date", nil, 2) end
+return
+end
+local ok = L.bWrite(url, {v = 1, pages = out})
+busy = false
+if not ok then
+return notify("Dua's Library board", "Couldn't save (" .. tostring(L.boardErr) .. ")", nil, 4)
+end
+notify("Dua's Library board", "Saved, everyone will see it", nil, 3)
+end)
+end
+-- admins pull the board now and then so they see each other's posts (and removals)
+function L.boardPullAdmin()
+if not isAdmin then return end
+local bp = L.boardFetch()
+if not bp then return end
+local changed, mine = false, me():lower()
+for name in pairs(L.BOARD_SECTIONS) do
+local list = adminPages[name]
+if list then
+local inBin = {}
+for _, e in ipairs(bp[name] or {}) do
+local k = keyOf(name, e)
+inBin[k] = true
+local have = false
+for _, x in ipairs(list) do
+if x.name == e.name and x.code == e.code then have = true break end
+end
+if not have and not L.boardDel[k] then table.insert(list, e); changed = true end
+end
+for i = #list, 1, -1 do
+local x = list[i]
+if L.isAdminPost(name, x) and x.by:lower() ~= mine and not inBin[keyOf(name, x)] then
+table.remove(list, i)
+changed = true
+end
+end
+end
+end
+if changed then
+writeLocal()
+for _, ui in pairs(pageUI) do renderPage(ui.current) end
+end
+end
+if isAdmin and L.boardUrlOf() then
+task.spawn(function()
+while sg.Parent do
+task.wait(60)
+L.boardPullAdmin()
+end
+end)
+end
+end)()
+end
 selectItem(ITEMS[1].name)
 playSound(SND.click)
 if not isAdmin and feedUrl ~= "" then

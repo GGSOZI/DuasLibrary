@@ -90,7 +90,7 @@ font = "Nunito", style = "Solid", bold = true,
 walkSpeed = 16, jumpPower = 50, gravity = 196.2, fov = 70, flySpeed = 60, infJump = false, noclip = false, fly = false,
 winW = 560, winH = 350,
 chatGames = false, shareGame = true, chatLang = "", chatLangLast = "", helpSeen = "",
-shareAdd = true,
+shareAdd = true, dmSeen = "", shareSort = "new",
 }
 local LIMITS = {
 hue = {0, 1}, sat = {0.05, 1}, winTrans = {0, 0.6},
@@ -189,7 +189,7 @@ local o = {}
 for _, e in ipairs(list) do
 local i = idx[e.code]
 if not i then i = #codes + 1; codes[i] = e.code; idx[e.code] = i end
-o[#o + 1] = {e.name, i, e.by or "", e.desc or ""}
+o[#o + 1] = {e.name, i, e.by or "", e.desc or "", e.game or "", e.gid or "", e.kinds or "", e.t or 0, e.an or "", e.anb or ""}
 end
 out[name] = o
 end
@@ -203,7 +203,11 @@ local o = {}
 if type(list) == "table" then
 for _, t in ipairs(list) do
 local code = type(t) == "table" and data.c[tonumber(t[2]) or 0]
-if type(code) == "string" and type(t[1]) == "string" then o[#o + 1] = {name = t[1], code = code, by = (type(t[3]) == "string" and t[3] ~= "") and t[3] or nil, desc = (type(t[4]) == "string" and t[4] ~= "") and t[4] or nil} end
+if type(code) == "string" and type(t[1]) == "string" then
+local function sv(v) return type(v) == "string" and v ~= "" and v or nil end
+local tt = tonumber(t[8])
+o[#o + 1] = {name = t[1], code = code, by = sv(t[3]), desc = sv(t[4]), game = sv(t[5]), gid = sv(t[6]), kinds = sv(t[7]), t = (tt and tt > 0) and tt or nil, an = sv(t[9]), anb = sv(t[10])}
+end
 end
 end
 pages[name] = o
@@ -309,12 +313,95 @@ local user, repo, rest = url:match("^https?://github%.com/([^/]+)/([^/]+)/blob/(
 if user then url = ("https://raw.githubusercontent.com/%s/%s/%s"):format(user, repo, rest) end
 return ("loadstring(game:HttpGet(%q))()"):format(url)
 end
+L.GAMES = {
+"Blox Fruits", "Brookhaven RP", "Blade Ball", "Bee Swarm Simulator", "Adopt Me!", "Grow a Garden", "Steal a Brainrot", "Murder Mystery 2",
+"Pet Simulator 99", "Arsenal", "Doors", "Jailbreak", "Tower of Hell", "Da Hood", "Rivals", "King Legacy", "Fisch", "Natural Disaster Survival",
+"Piggy", "Phantom Forces", "Build A Boat For Treasure", "Dress To Impress", "99 Nights in the Forest", "Pls Donate", "Royale High", "MeepCity",
+"Work at a Pizza Place", "Slap Battles", "Evade", "Break In", "Bad Business", "BedWars", "Big Paintball", "Bubble Gum Simulator",
+"Anime Defenders", "Anime Adventures", "Anime Vanguards", "Anime Last Stand", "All Star Tower Defense", "Toilet Tower Defense", "Tower Defense Simulator",
+"The Strongest Battlegrounds", "Combat Warriors", "Counter Blox", "Flee the Facility", "Mad City", "Lumber Tycoon 2", "Theme Park Tycoon 2",
+"Restaurant Tycoon 2", "Car Dealership Tycoon", "Vehicle Simulator", "Driving Empire", "Southwest Florida", "Welcome to Bloxburg", "Livetopia",
+"Berry Avenue", "Rainbow Friends", "Type Soul", "Project Slayers", "Blue Lock Rivals", "Volleyball Legends", "Basketball Legends", "Ultimate Football",
+"Legends of Speed", "Speed Run 4", "Flood Escape 2", "Survive the Killer", "Prison Life", "Entry Point", "Apocalypse Rising 2", "Frontlines",
+"Ro-Ghoul", "Shindo Life", "Sol's RNG", "Dead Rails", "Mining Simulator", "Tapping Simulator", "Obby But You're on a Bike", "Raise a Floppa",
+"Murderers vs Sheriffs Duels", "Zombie Attack", "Zombie Uprising", "Sword Fights on the Heights", "Epic Minigames", "Crossroads", "Hide and Seek Extreme",
+"Football Fusion", "Strucid", "Gun Game", "Skywars", "The Mimic", "Pressure", "Ink Game", "Squid Game", "Dungeon Quest", "Weapon Fighting Simulator",
+"Roblox High School", "Boxing Beta", "Untitled Boxing Game", "Jujutsu Shenanigans", "Deepwoken", "Rogue Lineage", "A Dusty Trip", "Retro Gaming",
+}
+L.KINDS = {{"K", "Keyless", Color3.fromRGB(40, 150, 85)}, {"U", "Universal", Color3.fromRGB(60, 120, 230)}, {"F", "FE", Color3.fromRGB(200, 115, 35)}}
+function L.kindWords(k)
+local out = {}
+for _, kd in ipairs(L.KINDS) do if type(k) == "string" and k:find(kd[1], 1, true) then out[#out + 1] = kd[2] end end
+return table.concat(out, ", ")
+end
+function L.lev(a, b)
+local la, lb = #a, #b
+if math.abs(la - lb) > 2 then return 9 end
+local prev = {}
+for j = 0, lb do prev[j] = j end
+for i = 1, la do
+local cur = {[0] = i}
+for j = 1, lb do
+cur[j] = math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + ((a:byte(i) == b:byte(j)) and 0 or 1))
+end
+prev = cur
+end
+return prev[lb]
+end
+-- closest game names for what the player typed (prefix first, then word start, then anywhere, then typos)
+function L.matchGames(q, n)
+q = (q or ""):lower():match("^%s*(.-)%s*$")
+local pool, seen = {}, {}
+if L.curGame then pool[1] = L.curGame; seen[L.curGame:lower()] = true end
+for _, g in ipairs(L.GAMES) do
+if not seen[g:lower()] then seen[g:lower()] = true; pool[#pool + 1] = g end
+end
+local out = {}
+if q == "" then
+for i = 1, math.min(n, #pool) do out[i] = pool[i] end
+return out
+end
+local scored = {}
+for i, name in ipairs(pool) do
+local ln = name:lower()
+local sc
+if ln:sub(1, #q) == q then sc = 0
+elseif (" " .. ln):find(" " .. q, 1, true) then sc = 1
+elseif ln:find(q, 1, true) then sc = 2
+elseif #q >= 3 then
+local lim = #q >= 6 and 2 or 1
+local d = L.lev(q, ln:sub(1, #q))
+for w in ln:gmatch("%S+") do d = math.min(d, L.lev(q, w:sub(1, #q))) end
+if d <= lim then sc = 3 + d end
+end
+if sc then scored[#scored + 1] = {name = name, sc = sc, i = i} end
+end
+table.sort(scored, function(a, b) if a.sc ~= b.sc then return a.sc < b.sc end return a.i < b.i end)
+for i = 1, math.min(n, #scored) do out[i] = scored[i].name end
+return out
+end
+function L.gameFromId(id, cb)
+task.spawn(function()
+local ok, info = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(tonumber(id)) end)
+cb(ok and type(info) == "table" and type(info.Name) == "string" and info.Name:sub(1, 40) or nil)
+end)
+end
+if game.PlaceId and game.PlaceId > 0 then
+task.spawn(function()
+local ok, info = pcall(function() return game:GetService("MarketplaceService"):GetProductInfo(game.PlaceId) end)
+if ok and type(info) == "table" and type(info.Name) == "string" then L.curGame = info.Name:sub(1, 40) end
+end)
+end
 local function cleanList(list)
 local out = {}
 if type(list) == "table" then
 for _, e in ipairs(list) do
 if type(e) == "table" and type(e.name) == "string" and type(e.code) == "string" then
-out[#out + 1] = {name = e.name, code = e.code, by = type(e.by) == "string" and e.by:sub(1, 20) or nil, desc = type(e.desc) == "string" and e.desc ~= "" and e.desc:sub(1, 300) or nil}
+local gid = (type(e.gid) == "string" or type(e.gid) == "number") and tostring(e.gid):match("^%d+$") or nil
+out[#out + 1] = {name = e.name, code = e.code, by = type(e.by) == "string" and e.by:sub(1, 20) or nil, desc = type(e.desc) == "string" and e.desc ~= "" and e.desc:sub(1, 300) or nil,
+game = type(e.game) == "string" and e.game ~= "" and e.game:sub(1, 40) or nil, gid = gid and gid:sub(1, 15) or nil,
+kinds = type(e.kinds) == "string" and e.kinds:match("^[KUF]+$") and e.kinds:sub(1, 3) or nil, t = tonumber(e.t),
+an = type(e.an) == "string" and e.an ~= "" and e.an:sub(1, 200) or nil, anb = type(e.anb) == "string" and e.anb ~= "" and e.anb:sub(1, 20) or nil}
 end
 end
 end
@@ -590,7 +677,12 @@ for _, n in ipairs(names) do
 if #pages[n] > 0 then
 out[#out + 1] = string.format("\t[%q] = {", n)
 for _, e in ipairs(pages[n]) do
-out[#out + 1] = string.format("\t\t{name = %q, code = %s},", e.name, longStr(e.code))
+local extra = ""
+for _, f in ipairs({"by", "desc", "game", "gid", "kinds", "an", "anb"}) do
+if type(e[f]) == "string" and e[f] ~= "" then extra = extra .. string.format(", %s = %q", f, e[f]) end
+end
+if tonumber(e.t) then extra = extra .. string.format(", t = %d", math.floor(tonumber(e.t))) end
+out[#out + 1] = string.format("\t\t{name = %q, code = %s%s},", e.name, longStr(e.code), extra)
 end
 out[#out + 1] = "\t},"
 end
@@ -1102,15 +1194,20 @@ outline(c, 2, 0.2)
 return c
 end
 local modal = overlay("AddMenu", 40)
-local modalCard = card(modal, 340, 322, 41)
+local modalCard = card(modal, 500, 322, 41)
 local modalTitle = text(modalCard, {
 Position = UO(18, 10), Size = U2(1, -36, 0, 26), Text = "Add script", TextSize = 18,
 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42,
 })
 fit(modalTitle, 18, 9)
-text(modalCard, {Position = UO(18, 40), Size = UO(200, 14), Text = "NAME", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
-text(modalCard, {Position = UO(18, 90), Size = UO(250, 14), Text = "SCRIPT OR LINK", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
-text(modalCard, {Position = UO(18, 198), Size = UO(300, 14), Text = "ADD A DESCRIPTION (optional)", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
+function L.modalLabel(x, y, w, t)
+text(modalCard, {Position = UO(x, y), Size = UO(w, 14), Text = t, TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
+end
+L.modalLabel(18, 40, 200, "NAME")
+L.modalLabel(18, 90, 230, "SCRIPT OR LINK")
+L.modalLabel(18, 198, 230, "ADD A DESCRIPTION (optional)")
+L.modalLabel(262, 40, 220, "WHAT GAME IS IT FOR? (name or game ID)")
+L.modalLabel(262, 190, 220, "TYPE (tick all that apply)")
 local function inputBox(parent, x, y, w, h, placeholder, multi, z)
 local tb = new("TextBox", {
 Position = UO(x, y), Size = UO(w, h), BackgroundColor3 = Color3.new(0, 0, 0),
@@ -1125,12 +1222,109 @@ round(tb, 8)
 new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, multi and 6 or 0)}, tb)
 return tb, outline(tb, 1.5, 0.5)
 end
-local nameBox, nameStroke = inputBox(modalCard, 18, 55, 304, 30, "Name your script", false, 42)
-local codeBox, codeStroke = inputBox(modalCard, 18, 105, 304, 86, "Paste the script, or a pastebin link", true, 42)
-local descBox = inputBox(modalCard, 18, 214, 304, 50, "What does it do? (optional)", true, 42)
+local nameBox, nameStroke = inputBox(modalCard, 18, 55, 232, 30, "Name your script", false, 42)
+local codeBox, codeStroke = inputBox(modalCard, 18, 105, 232, 86, "Paste the script, or a pastebin link", true, 42)
+local descBox = inputBox(modalCard, 18, 214, 232, 50, "What does it do? (optional)", true, 42)
 descBox.Font = Enum.Font.Nunito
-local modalAdd = button(modalCard, 18, 276, 196, 34, "Add script", Color3.fromRGB(34, 160, 72), 0, 42)
-local modalCancel = button(modalCard, 222, 276, 100, 34, "Cancel", WHITE, 0.85, 42)
+local modalAdd = button(modalCard, 18, 276, 300, 34, "Add script", Color3.fromRGB(34, 160, 72), 0, 42)
+local modalCancel = button(modalCard, 326, 276, 156, 34, "Cancel", WHITE, 0.85, 42)
+-- game picker: closest matches while typing, game id lookup, Keyless / Universal / FE
+L.m = {kinds = {}}
+do
+local M2 = L.m
+M2.gameBox, M2.gameStroke = inputBox(modalCard, 262, 55, 220, 30, "Type a game, e.g. B  or a game ID", false, 42)
+local sugBtns, sugData, sugTok, setting = {}, {}, 0, false
+for i = 1, 3 do
+local b = new("TextButton", {
+Position = UO(262, 90 + (i - 1) * 27), Size = UO(220, 24), BackgroundColor3 = Color3.fromRGB(58, 58, 84), BorderSizePixel = 0,
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 12, Text = "", TextColor3 = WHITE,
+TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, Visible = false, ZIndex = 43,
+}, modalCard)
+round(b, 6)
+new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 6)}, b)
+sugBtns[i] = b
+b.MouseButton1Click:Connect(function()
+local it = sugData[i]
+if not it or not it.name then return end
+setting = true
+M2.gameBox.Text = it.name
+setting = false
+M2.gid = it.gid
+for _, x in ipairs(sugBtns) do x.Visible = false end
+end)
+end
+text(modalCard, {Position = UO(262, 172), Size = UO(220, 14), Font = Enum.Font.Nunito, Text = "Tap a match, or type your own. Universal needs no game.", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
+local function setSug(items)
+for i, b in ipairs(sugBtns) do
+local it = items[i]
+sugData[i] = it
+b.Visible = it ~= nil
+if it then b.Text = it.label end
+end
+end
+local function refreshSug()
+sugTok = sugTok + 1
+local my = sugTok
+local q = M2.gameBox.Text
+local idq = q:match("^%s*(%d+)%s*$")
+if idq and #idq >= 3 then
+setSug({{label = "🔎 Looking up game ID " .. idq .. "..."}})
+L.gameFromId(idq, function(nm)
+if my ~= sugTok then return end
+if nm then setSug({{label = "🎮 " .. nm .. "  (ID " .. idq .. ")", name = nm, gid = idq}})
+else setSug({{label = "No game found for " .. idq .. ", tap to use the ID", name = "Game ID " .. idq, gid = idq}}) end
+end)
+return
+end
+local items = {}
+for _, nm in ipairs(L.matchGames(q, 3)) do
+items[#items + 1] = {label = "🎮 " .. nm .. (nm == L.curGame and "  (this game)" or ""), name = nm}
+end
+setSug(items)
+end
+M2.gameBox:GetPropertyChangedSignal("Text"):Connect(function()
+if setting then return end
+M2.gid = nil
+refreshSug()
+end)
+local chips = {}
+local function recolor()
+for i, kd in ipairs(L.KINDS) do
+local on = M2.kinds[kd[1]]
+chips[i].BackgroundColor3 = on and kd[3] or Color3.fromRGB(40, 40, 56)
+chips[i].Text = (on and "✔ " or "") .. kd[2]
+end
+end
+for i, kd in ipairs(L.KINDS) do
+local b = button(modalCard, 262 + (i - 1) * 74, 206, 70, 28, kd[2], Color3.fromRGB(40, 40, 56), 0, 42)
+b.TextSize = 12
+fit(b, 12, 7)
+chips[i] = b
+b.MouseButton1Click:Connect(function() M2.kinds[kd[1]] = not M2.kinds[kd[1]]; recolor() end)
+end
+function M2.kindStr()
+local out = ""
+for _, kd in ipairs(L.KINDS) do if M2.kinds[kd[1]] then out = out .. kd[1] end end
+return out
+end
+function M2.reset()
+setting = true
+M2.gameBox.Text = ""
+setting = false
+M2.gid, M2.kinds = nil, {}
+recolor()
+refreshSug()
+end
+-- the card keeps fitting when the window is small
+local mScale = new("UIScale", {}, modalCard)
+local function fitCard()
+local a = win.AbsoluteSize
+if a.X > 0 and a.Y > 0 then mScale.Scale = math.clamp(math.min((a.X - 12) / 500, (a.Y - 12) / 322), 0.5, 1) end
+end
+win:GetPropertyChangedSignal("AbsoluteSize"):Connect(fitCard)
+fitCard()
+M2.reset()
+end
 local confirm = overlay("Confirm", 50)
 local confirmCard = card(confirm, 300, 134, 51)
 local askConfirm
@@ -1180,16 +1374,44 @@ vBox.TextEditable = false
 local vCopy = button(viewCard, 16, 270, 126, 34, "Copy script", Color3.fromRGB(34, 160, 72), 0, 47)
 local vNoteB = button(viewCard, 150, 270, 126, 34, "📝 Note", Color3.fromRGB(58, 58, 78), 0, 47)
 local vClose = button(viewCard, 284, 270, 120, 34, "Close", WHITE, 0.85, 47)
+local vPin = button(viewCard, 176, 270, 76, 34, "📌 Note", Color3.fromRGB(150, 100, 30), 0, 47)
+local vMsg = button(viewCard, 260, 270, 76, 34, "✉ Message", Color3.fromRGB(60, 110, 200), 0, 47)
+fit(vPin, 13, 8)
+fit(vMsg, 13, 8)
+vPin.Visible, vMsg.Visible = false, false
+vInfo.TextTruncate = Enum.TextTruncate.AtEnd
 local current, shownCode
 local function showNote()
+local parts = {}
+if current and current.an then parts[#parts + 1] = "📌 " .. tostring(current.anb or "Admin") .. ": " .. current.an end
 local n = current and L.notes[L.noteKey(current)]
-vNote.Text = n and ("📝 " .. n:gsub("%s+", " "):sub(1, 90)) or ""
+if n then parts[#parts + 1] = "📝 " .. n end
+local txt = table.concat(parts, "   "):gsub("%s+", " ")
+vNote.Text = txt:sub(1, 120)
 end
 openViewer = function(entry, shown)
 current, shownCode = entry, shown or entry.code
 vTitle.Text, vBox.Text = entry.name, shownCode
 local who = type(entry.by) == "string" and entry.by ~= "" and entry.by or nil
-vInfo.Text = who and ("Shared by " .. who .. ((isAdmin and type(entry.uid) == "string" and entry.uid ~= "") and ("   (ID " .. entry.uid .. ")") or "")) or ""
+local info = {}
+if who then info[#info + 1] = "Shared by " .. who .. ((isAdmin and type(entry.uid) == "string" and entry.uid ~= "") and ("   (ID " .. entry.uid .. ")") or "") end
+if entry.game then info[#info + 1] = "🎮 " .. entry.game .. (entry.gid and (" (ID " .. entry.gid .. ")") or "") end
+if entry.kinds then info[#info + 1] = L.kindWords(entry.kinds) end
+local onShare = entry.comm or table.find(adminPages[ADD_PAGE], entry) ~= nil
+if onShare then info[#info + 1] = "❤ " .. ((L.favCount or {})[entry.name] or 0) end
+vInfo.Text = table.concat(info, "  ·  ")
+local adminHere = isAdmin and onShare
+vPin.Visible = adminHere
+vMsg.Visible = adminHere and (entry.comm or who) and true or false
+if vMsg.Visible then
+vCopy.Position, vCopy.Size, vNoteB.Position, vNoteB.Size, vClose.Position, vClose.Size = UO(16, 270), UO(78, 34), UO(102, 270), UO(66, 34), UO(344, 270), UO(60, 34)
+elseif adminHere then
+vCopy.Position, vCopy.Size, vNoteB.Position, vNoteB.Size, vPin.Position, vClose.Position, vClose.Size = UO(16, 270), UO(96, 34), UO(120, 270), UO(86, 34), UO(214, 270), UO(304, 270), UO(100, 34)
+vPin.Size = UO(82, 34)
+else
+vCopy.Position, vCopy.Size, vNoteB.Position, vNoteB.Size, vClose.Position, vClose.Size = UO(16, 270), UO(126, 34), UO(150, 270), UO(126, 34), UO(284, 270), UO(120, 34)
+end
+if vMsg.Visible then vPin.Position, vPin.Size = UO(176, 270), UO(76, 34) end
 vDesc.Text = (type(entry.desc) == "string" and entry.desc ~= "") and entry.desc or (who and "No description." or "")
 showNote()
 viewer.Visible = true
@@ -1229,6 +1451,60 @@ done()
 end)
 del.MouseButton1Click:Connect(function() L.notes[L.noteKey(current)] = nil; done() end)
 cancel.MouseButton1Click:Connect(function() ed.Visible = false end)
+end
+do
+local an = overlay("AdminNoteEditor", 50)
+local ac = card(an, 340, 214, 51)
+L.cards[#L.cards + 1] = ac
+text(ac, {Position = UO(16, 10), Size = U2(1, -32, 0, 24), Text = "📌 Admin note", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 52})
+text(ac, {Position = UO(16, 34), Size = U2(1, -32, 0, 14), Font = Enum.Font.Nunito, Text = "Everyone sees this on the script. Only owner and admins can write it.", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 52})
+local ab = inputBox(ac, 16, 54, 308, 100, "e.g. Tested today, works on mobile", true, 52)
+local save = button(ac, 16, 166, 120, 32, "Save note", Color3.fromRGB(34, 160, 72), 0, 52)
+local del = button(ac, 142, 166, 90, 32, "Remove", RED, 0.3, 52)
+local cancel = button(ac, 238, 166, 86, 32, "Cancel", WHITE, 0.85, 52)
+vPin.MouseButton1Click:Connect(function()
+if not current or not isAdmin then return end
+ab.Text = current.an or ""
+an.Visible = true
+end)
+save.MouseButton1Click:Connect(function()
+if not current then return end
+if ab.Text:match("^%s*$") then return notify("Admin note", "Write the note first, or press Remove", nil, 2) end
+L.setAdminNote(current, ab.Text)
+an.Visible = false
+showNote()
+end)
+del.MouseButton1Click:Connect(function()
+if not current then return end
+L.setAdminNote(current, "")
+an.Visible = false
+showNote()
+end)
+cancel.MouseButton1Click:Connect(function() an.Visible = false end)
+end
+do
+local mo = overlay("ScriptMessage", 50)
+local mc = card(mo, 340, 214, 51)
+L.cards[#L.cards + 1] = mc
+local mt = text(mc, {Position = UO(16, 10), Size = U2(1, -32, 0, 24), Text = "✉ Message the sharer", TextSize = 16, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 52})
+fit(mt, 16, 9)
+text(mc, {Position = UO(16, 34), Size = U2(1, -32, 0, 14), Font = Enum.Font.Nunito, Text = "They get it in their Messages, with this script's name.", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 52})
+local mb = inputBox(mc, 16, 54, 308, 100, "Write your message...", true, 52)
+local send = button(mc, 16, 166, 150, 32, "Send", Color3.fromRGB(34, 160, 72), 0, 52)
+local cancel = button(mc, 174, 166, 150, 32, "Cancel", WHITE, 0.85, 52)
+vMsg.MouseButton1Click:Connect(function()
+if not current or not isAdmin then return end
+mt.Text = "✉ Message " .. tostring(current.by or "the sharer"):sub(1, 18)
+mb.Text = ""
+mo.Visible = true
+end)
+send.MouseButton1Click:Connect(function()
+if not current then return end
+if mb.Text:match("^%s*$") then return notify("Message", "Write the message first", nil, 2) end
+L.sendScriptMsg(current, mb.Text)
+mo.Visible = false
+end)
+cancel.MouseButton1Click:Connect(function() mo.Visible = false end)
 end
 vCopy.MouseButton1Click:Connect(function()
 if not current then return end
@@ -1286,8 +1562,30 @@ local entries, shared = shownEntries(name)
 local q = (ui.query or ""):lower()
 if q ~= "" then
 local f = {}
-for _, e in ipairs(entries) do if e.name:lower():find(q, 1, true) then f[#f + 1] = e end end
+for _, e in ipairs(entries) do
+local hay = (e.name .. " " .. (e.game or "") .. " " .. (e.by or "") .. " " .. L.kindWords(e.kinds) .. " " .. (e.gid or "")):lower()
+if hay:find(q, 1, true) then f[#f + 1] = e end
+end
 entries = f
+end
+if name == ADD_PAGE then
+local seq, mode, fc = {}, S.shareSort, L.favCount or {}
+for i, e in ipairs(entries) do seq[e] = i end
+table.sort(entries, function(a, b)
+local x, y = a.t or 0, b.t or 0
+if mode == "fav" then
+local fa, fb = fc[a.name] or 0, fc[b.name] or 0
+if fa ~= fb then return fa > fb end
+elseif mode == "az" then
+local na, nb = a.name:lower(), b.name:lower()
+if na ~= nb then return na < nb end
+elseif mode == "old" then
+if x ~= y then return x < y end
+return seq[a] < seq[b]
+end
+if x ~= y then return x > y end
+return seq[a] > seq[b]
+end)
 end
 if ui.plus then ui.plus.Visible = name == ADD_PAGE or L.isSection[name] == true end
 local pageIcon = name == ADD_PAGE and "➕" or "📜"
@@ -1326,6 +1624,9 @@ fit(nm, 14, 8)
 if L.hasNote(entry) then
 text(tile, {Position = UO(32, 15), Size = UO(14, 14), Text = "📝", TextSize = 12, ZIndex = 24})
 end
+if entry.an then
+text(tile, {Position = UO(L.hasNote(entry) and 48 or 32, 15), Size = UO(14, 14), Text = "📌", TextSize = 12, ZIndex = 24})
+end
 local byName = entry.comm and entry.by or (isShared and (entry.by or "admin")) or nil
 if byName then
 local byLbl = text(tile, {
@@ -1334,6 +1635,34 @@ Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextScaled =
 TextTransparency = 0.1, ZIndex = 23,
 })
 new("UITextSizeConstraint", {MaxTextSize = 10, MinTextSize = 6}, byLbl)
+end
+if entry.game then
+local gl = text(tile, {
+Position = UO(10, 84), Size = U2(1, -20, 0, 12), Text = "🎮 " .. entry.game, TextSize = 10,
+Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, TextScaled = true, ZIndex = 23,
+})
+new("UITextSizeConstraint", {MaxTextSize = 10, MinTextSize = 6}, gl)
+end
+if entry.kinds then
+local cx = 10
+for _, kd in ipairs(L.KINDS) do
+if entry.kinds:find(kd[1], 1, true) then
+local w = kd[1] == "K" and 38 or (kd[1] == "U" and 46 or 22)
+local chip = new("TextLabel", {
+Position = UO(cx, 99), Size = UO(w, 14), BackgroundColor3 = kd[3], BorderSizePixel = 0, Text = kd[2],
+Font = Enum.Font.Nunito, TextSize = 9, TextColor3 = WHITE, TextScaled = true, ZIndex = 23,
+}, tile)
+round(chip, 4)
+new("UITextSizeConstraint", {MaxTextSize = 9, MinTextSize = 6}, chip)
+cx = cx + w + 3
+end
+end
+end
+if name == ADD_PAGE then
+text(tile, {
+AnchorPoint = V2(1, 0), Position = U2(1, -5, 0, 25), Size = UO(46, 12), Text = "❤ " .. ((L.favCount or {})[entry.name] or 0),
+TextSize = 10, Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 24,
+})
 end
 local heart = new("TextButton", {
 AnchorPoint = V2(1, 0), Position = U2(1, -4, 0, 5), Size = UO(22, 20), BackgroundTransparency = 1,
@@ -1420,6 +1749,7 @@ if not (name == ADD_PAGE or L.isSection[name]) then return end
 modalPage = name
 modalTitle.Text = (name == ADD_PAGE) and "Add your script" or ("Add script to " .. name)
 nameBox.Text, codeBox.Text, descBox.Text = "", "", ""
+L.m.reset()
 modal.Visible = true
 end
 local function flashRed(st)
@@ -1439,9 +1769,21 @@ if chatL and chatL.isHate and (chatL.isHate(desc) or chatL.isHate(nm)) then
 notify("Blocked", "Racist or hateful language isn't allowed", nil, 4)
 return flashRed(nameStroke)
 end
-local entry = {name = nm, code = normalizeCode(code), desc = desc ~= "" and desc or nil, by = (modalPage == ADD_PAGE) and (verName or LP.Name) or nil}
+local gname = L.m.gameBox.Text:gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 40)
+local kinds, gid = L.m.kindStr(), L.m.gid
+if gname:match("^%d+$") then gid = gid or gname; gname = "Game ID " .. gname end
+if gname == "" and not kinds:find("U", 1, true) then
+notify("Pick a game", "Choose the game this script is for, or tick Universal", nil, 4)
+return flashRed(L.m.gameStroke)
+end
+if gname ~= "" and chatL and chatL.isHate and chatL.isHate(gname) then
+notify("Blocked", "Racist or hateful language isn't allowed", nil, 4)
+return flashRed(L.m.gameStroke)
+end
+local entry = {name = nm, code = normalizeCode(code), desc = desc ~= "" and desc or nil, by = (modalPage == ADD_PAGE) and (verName or LP.Name) or nil,
+game = gname ~= "" and gname or nil, gid = gid and tostring(gid):sub(1, 15) or nil, kinds = kinds ~= "" and kinds or nil, t = os.time()}
 local toShared = modalPage ~= ADD_PAGE or S.shareAdd
-if modalPage == ADD_PAGE and S.shareAdd and not isAdmin and L.commPush(nm, entry.code, entry.desc) then
+if modalPage == ADD_PAGE and S.shareAdd and not isAdmin and L.commPush(nm, entry.code, entry.desc, entry.game, entry.gid, entry.kinds) then
 modal.Visible = false
 return
 end
@@ -1451,7 +1793,7 @@ table.insert(modalPage == ADD_PAGE and adminPages[ADD_PAGE] or entriesOf[modalPa
 if isAdmin then
 local fl, dup = adminPages[L.FAVD], false
 for _, x in ipairs(fl) do if x.name == entry.name and x.code == entry.code then dup = true end end
-if not dup then table.insert(fl, {name = entry.name, code = entry.code, by = entry.by, desc = entry.desc}) end
+if not dup then table.insert(fl, {name = entry.name, code = entry.code, by = entry.by, desc = entry.desc, game = entry.game, gid = entry.gid, kinds = entry.kinds, t = entry.t}) end
 end
 syncAdmin()
 renderPage(L.FAVD)
@@ -1547,10 +1889,10 @@ ScrollBarThickness = 3, ScrollBarImageColor3 = WHITE,
 CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 20,
 }, page)
 L.grids[#L.grids + 1] = new("UIGridLayout", {
-CellSize = U2(0.25, -11, 0, 112), CellPadding = UO(8, 8),
+CellSize = U2(0.25, -11, 0, 146), CellPadding = UO(8, 8),
 SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Left,
 }, grid)
-L.cellH[L.grids[#L.grids]] = 112
+L.cellH[L.grids[#L.grids]] = 146
 new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8)}, grid)
 local plusTile
 if name == ADD_PAGE or (name == L.DUA and isAdmin) then
@@ -1594,7 +1936,20 @@ rq.AnchorPoint, rq.Position, rq.TextSize = V2(1, 0), U2(1, -10, 0, 7), 12
 fit(rq, 12, 8)
 rq.MouseButton1Click:Connect(function() L.openCompose() end)
 else
-box.Position, box.Size = UO(10, 46), U2(1, -100, 0, 26)
+box.Position, box.Size = UO(10, 46), U2(1, -216, 0, 26)
+local sortB = button(page, 0, 0, 104, 26, "", Color3.fromRGB(58, 58, 90), 0, 22)
+sortB.AnchorPoint, sortB.Position, sortB.TextSize = V2(1, 0), U2(1, -96, 0, 46), 12
+local SORT_NAMES = {new = "Sort: Newest", fav = "Sort: Most ❤", old = "Sort: Oldest", az = "Sort: A-Z"}
+local SORT_ORDER = {"new", "fav", "old", "az"}
+if not SORT_NAMES[S.shareSort] then S.shareSort = "new" end
+sortB.Text = SORT_NAMES[S.shareSort]
+sortB.MouseButton1Click:Connect(function()
+local at = table.find(SORT_ORDER, S.shareSort) or 0
+S.shareSort = SORT_ORDER[at % #SORT_ORDER + 1]
+sortB.Text = SORT_NAMES[S.shareSort]
+scheduleSave()
+renderPage(pageUI[name].current)
+end)
 L.rf = button(page, 0, 0, 80, 26, "Refresh", Color3.fromRGB(58, 58, 90), 0, 22)
 L.rf.AnchorPoint, L.rf.Position, L.rf.TextSize = V2(1, 0), U2(1, -10, 0, 46), 12
 L.rf.MouseButton1Click:Connect(function()
@@ -1652,9 +2007,13 @@ fp = migrate(fp)
 for name, list in pairs(adminPages) do
 if name == ADD_PAGE then
 for _, e in ipairs(fp[name] or {}) do
-local have = false
-for _, x in ipairs(list) do if x.name == e.name and x.code == e.code then have = true end end
-if not have then table.insert(list, e) end
+local have
+for _, x in ipairs(list) do if x.name == e.name and x.code == e.code then have = x end end
+if have then
+have.an, have.anb, have.game, have.gid, have.kinds, have.t = e.an, e.anb, e.game, e.gid, e.kinds, e.t or have.t
+else
+table.insert(list, e)
+end
 end
 else
 while #list > 0 do table.remove(list) end
@@ -1760,6 +2119,10 @@ notify("Favorite", "Removed " .. e.name)
 else
 table.insert(list, {name = e.name, code = e.code})
 notify("Favorite", "Added " .. e.name .. (isAdmin and " (everyone sees it)" or ""))
+end
+if not isAdmin then
+L.favCount = L.favCount or {}
+L.favCount[e.name] = math.max(0, (L.favCount[e.name] or 0) + (at and -1 or 1))
 end
 if isAdmin then syncAdmin() else writeJson(FILE.FAVS, {list = L.favs}); task.delay(3, L.syncFavs) end
 for _, ui in pairs(pageUI) do renderPage(ui.current) end
@@ -2326,6 +2689,13 @@ if manual then notify("Community scripts", "Couldn't reach the board (" .. tostr
 return
 end
 L.commErr, L.commSyncAt = nil, os.time()
+do
+local fc = {}
+for _, r in ipairs(L.tally(d)) do fc[r.n] = r.k end
+L.favCount = fc
+end
+L.dmList = type(d.dm) == "table" and d.dm or {}
+L.processDm()
 local surl = L.shareBoardOf()
 if surl then
 local sd = L.bRead(surl)
@@ -2348,7 +2718,11 @@ end
 local out = {}
 for _, x in ipairs(type(d.shared) == "table" and d.shared or {}) do
 if type(x) == "table" and type(x.n) == "string" and type(x.c) == "string" and #x.c <= 30000 and #out < 200 then
-out[#out + 1] = {name = x.n:sub(1, 40), code = x.c, comm = true, by = tostring(x.a or "?"):sub(1, 20), uid = tostring(x.u or ""), t = tonumber(x.t) or 0, desc = type(x.d) == "string" and x.d ~= "" and x.d:sub(1, 300) or nil}
+local gid = (type(x.gi) == "string" or type(x.gi) == "number") and tostring(x.gi):match("^%d+$") or nil
+local okNote = type(x.an) == "string" and x.an ~= "" and L.isAdminName(x.anb)
+out[#out + 1] = {name = x.n:sub(1, 40), code = x.c, comm = true, by = tostring(x.a or "?"):sub(1, 20), uid = tostring(x.u or ""), t = tonumber(x.t) or 0, desc = type(x.d) == "string" and x.d ~= "" and x.d:sub(1, 300) or nil,
+game = type(x.g) == "string" and x.g ~= "" and x.g:sub(1, 40) or nil, gid = gid and gid:sub(1, 15) or nil, kinds = type(x.k) == "string" and x.k:match("^[KUF]+$") and x.k:sub(1, 3) or nil,
+an = okNote and x.an:sub(1, 200) or nil, anb = okNote and tostring(x.anb):sub(1, 20) or nil}
 end
 end
 do
@@ -2358,7 +2732,8 @@ L.boardMuted = mc <= 40 and mm or {}
 if L.applyMuted then pcall(L.applyMuted) end
 end
 local sig = {}
-for _, e in ipairs(out) do sig[#sig + 1] = e.uid .. e.t .. e.name .. #e.code end
+local fcs = L.favCount or {}
+for _, e in ipairs(out) do sig[#sig + 1] = e.uid .. e.t .. e.name .. #e.code .. (fcs[e.name] or 0) .. (e.game or "") .. (e.kinds or "") .. (e.an or "") end
 sig = table.concat(sig, "|")
 if manual then notify("Community scripts", #out .. " shared by players", nil, 3) end
 if sig == L.commSig then renderPage(ADD_PAGE) return end
@@ -2366,7 +2741,7 @@ L.commSig, L.comm = sig, out
 renderPage(ADD_PAGE)
 end)
 end
-L.pending, L.helpList, L.helpReplies, L.helpAsked = {}, {}, {}, {}
+L.pending, L.helpList, L.helpReplies, L.helpAsked, L.dmList, L.dmMine = {}, {}, {}, {}, {}, {}
 function L.commHas(d, e)
 for _, x in ipairs(type(d.shared) == "table" and d.shared or {}) do
 if type(x) == "table" and tostring(x.u) == e.u and tonumber(x.t) == e.t and x.n == e.n then return true end
@@ -2380,7 +2755,7 @@ local d = L.bRead(url)
 if d then
 if L.commHas(d, e) then return true end
 if type(d.shared) ~= "table" then d.shared = {} end
-table.insert(d.shared, {n = e.n, c = e.c, u = e.u, a = e.a, t = e.t, d = e.d})
+table.insert(d.shared, {n = e.n, c = e.c, u = e.u, a = e.a, t = e.t, d = e.d, g = e.g, gi = e.gi, k = e.k})
 local mine = 0
 for _, x in ipairs(d.shared) do if tostring(x.u) == e.u then mine = mine + 1 end end
 for i = 1, #d.shared do
@@ -2401,11 +2776,109 @@ end
 function L.commDone(e)
 for i, x in ipairs(L.pending) do if x == e then table.remove(L.pending, i) break end end
 end
-function L.commPush(nm, code, desc)
+function L.isAdminName(n)
+if type(n) ~= "string" then return false end
+local l = n:lower()
+for _, list in ipairs({rootAdmins, adminList}) do
+for _, a in ipairs(list) do if a:lower() == l then return true end end
+end
+return false
+end
+function L.processDm()
+local me, mine = tostring(LP.UserId), {}
+for _, m in ipairs(L.dmList or {}) do
+if type(m) == "table" and type(m.id) == "string" and m.id:match("^%w+$") and tostring(m.u) == me and type(m.t) == "string" then
+local ok, tm = pcall(os.date, "%H:%M", tonumber(m.ts) or os.time())
+local from, sc = tostring(m.f or "Admin"):sub(1, 20), tostring(m.s or ""):sub(1, 40)
+mine[#mine + 1] = {from = from, script = sc, text = m.t:sub(1, 300), at = ok and tm or ""}
+if not ("," .. S.dmSeen .. ","):find("," .. m.id .. ",", 1, true) then
+S.dmSeen = (S.dmSeen .. "," .. m.id):sub(-300)
+scheduleSave()
+notify("📩 " .. from .. ' about "' .. sc .. '"', m.t:sub(1, 80), nil, 6)
+end
+end
+end
+L.dmMine = mine
+if L.inboxRender then L.inboxRender() end
+end
+-- owner / admin only: a note everyone sees on a shared script
+function L.setAdminNote(entry, note)
+if not adminOk() then return end
+local who = verName or LP.Name
+note = (note or ""):gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 200)
+local an, anb = note ~= "" and note or nil, note ~= "" and who or nil
+entry.an, entry.anb = an, anb
+if entry.comm then
+local url = L.shareBoardOf() or L.boardOf()
+if url then
+task.spawn(function()
+local d = L.bRead(url)
+local hit
+for _, x in ipairs(d and type(d.shared) == "table" and d.shared or {}) do
+if tostring(x.u) == entry.uid and tonumber(x.t) == entry.t and tostring(x.n):sub(1, 40) == entry.name then hit = x break end
+end
+if hit then
+hit.an, hit.anb = an, anb
+if L.bWrite(url, d) then
+notify("Admin note", an and "Saved, everyone sees it" or "Removed", nil, 3)
+L.commBusy = false
+L.commPull()
+if L.ping then L.ping("board") end
+return
+end
+end
+notify("Couldn't save note", tostring(L.boardErr or "script not found on the board"), nil, 4)
+end)
+end
+else
+syncAdmin()
+notify("Admin note", an and "Saved" or "Removed", nil, 3)
+end
+renderPage(ADD_PAGE)
+end
+-- owner / admin only: message the player who shared a script (arrives in their Messages)
+function L.sendScriptMsg(entry, msg)
+if not adminOk() then return end
+msg = (msg or ""):gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 300)
+if msg == "" then return notify("Message", "Write the message first", nil, 2) end
+local url = L.boardOf()
+if not url then return notify("Message", "No board is set up yet", nil, 3) end
+task.spawn(function()
+local uid = tonumber(entry.uid)
+local who = entry.by
+if not uid and type(who) == "string" then
+local ok, id = pcall(Players.GetUserIdFromNameAsync, Players, who)
+uid = ok and tonumber(id) or nil
+end
+if not uid then return notify("Message", "Couldn't find who shared it", nil, 3) end
+who = who or L.nameOf(tostring(uid)) or "player"
+local id = tostring(os.time()) .. tostring(math.random(100, 999))
+local sent = false
+for _ = 1, 3 do
+local d = L.bRead(url)
+if d then
+if type(d.dm) ~= "table" then d.dm = {} end
+table.insert(d.dm, {id = id, u = tostring(uid), f = verName or LP.Name, s = entry.name:sub(1, 40), t = msg, ts = os.time()})
+while #d.dm > 60 do table.remove(d.dm, 1) end
+if L.bWrite(url, d) then sent = true break end
+end
+task.wait(0.4)
+end
+if sent then
+table.insert(L.sent, {to = who, text = '✉ About "' .. entry.name:sub(1, 30) .. '": ' .. msg:sub(1, 200), at = os.date("%H:%M")})
+notify("Message sent", "To " .. who .. ", they get it in their Messages", nil, 3)
+if L.ping then L.ping("board") end
+else
+notify("Couldn't send", tostring(L.boardErr or "board not reachable"), nil, 4)
+end
+end)
+end
+function L.commPush(nm, code, desc, gameName, gameId, kinds)
 local url = L.boardOf()
 if not url then return false end
 if #code > 30000 then notify("Too long", "Shared scripts can be up to 30,000 characters", nil, 3) return true end
-local e = {n = nm, c = code, d = (type(desc) == "string" and desc ~= "") and desc:sub(1, 300) or nil, u = tostring(LP.UserId), a = LP.Name, t = os.time(), tries = 1}
+local e = {n = nm, c = code, d = (type(desc) == "string" and desc ~= "") and desc:sub(1, 300) or nil, u = tostring(LP.UserId), a = LP.Name, t = os.time(), tries = 1,
+g = gameName, gi = gameId, k = kinds}
 table.insert(L.pending, e)
 task.spawn(function()
 e.busy = true
@@ -3584,9 +4057,10 @@ hb.Size, hb.LayoutOrder = U2(1, -4, 0, 30), nextOrd()
 hb.MouseButton1Click:Connect(function() L.openCompose("help") end)
 local msgs = L.myMsgs()
 for _, hr in ipairs(L.helpReplies or {}) do line("m", "❓ Help reply from " .. hr.from, hr.text, hr.at) end
+for _, dm in ipairs(L.dmMine or {}) do line("m", "📩 " .. dm.from .. ' about "' .. dm.script .. '"', dm.text, dm.at) end
 for _, m in ipairs(msgs) do line("m", isAdmin and ("To " .. (m.to == "all" and "everyone" or (m.toName or L.nameOf(m.to)))) or ("From " .. m.from), m.text) end
-for i = #L.sent, 1, -1 do line("s", "You to DuaKNo", L.sent[i].text, L.sent[i].at) end
-if #msgs == 0 and #L.sent == 0 and #(L.helpReplies or {}) == 0 then line("m", "💬 No messages yet", "Replies from DuaKNo appear here.") end
+for i = #L.sent, 1, -1 do line("s", "You to " .. (L.sent[i].to or "DuaKNo"), L.sent[i].text, L.sent[i].at) end
+if #msgs == 0 and #L.sent == 0 and #(L.helpReplies or {}) == 0 and #(L.dmMine or {}) == 0 then line("m", "💬 No messages yet", "Replies from DuaKNo appear here.") end
 end
 end
 L.inboxRender = function() if M.inbox.Visible then render() end end

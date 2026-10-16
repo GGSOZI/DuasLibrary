@@ -4540,10 +4540,68 @@ Position = UO(12, 47), Size = U2(1, -24, 0, 18), Text = "", TextSize = 11, TextT
 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 21,
 })
 local scroll = new("ScrollingFrame", {
-Position = UO(10, 70), Size = U2(1, -20, 1, -78), BackgroundTransparency = 1, BorderSizePixel = 0,
+Position = UO(10, 98), Size = U2(1, -20, 1, -106), BackgroundTransparency = 1, BorderSizePixel = 0,
 ScrollBarThickness = 3, ScrollBarImageColor3 = WHITE, ZIndex = 21, CanvasSize = UDim2.new(),
 AutomaticCanvasSize = Enum.AutomaticSize.Y,
 }, host)
+
+-- sort + Keyless / FE / Universal filters
+R.sort, R.f, R.chips = 1, {}, {}
+R.SORTS = {"Newest", "Oldest", "A-Z", "Most ❤"}
+local chipRow = new("ScrollingFrame", {
+Position = UO(10, 68), Size = U2(1, -20, 0, 26), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 0,
+CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.X, ScrollingDirection = Enum.ScrollingDirection.X, ZIndex = 21,
+}, host)
+new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 5), SortOrder = Enum.SortOrder.LayoutOrder}, chipRow)
+local function paintChips()
+for _, c in ipairs(R.chips) do
+c.b.BackgroundColor3 = c.isOn() and accentColor or Color3.fromRGB(30, 26, 44)
+end
+end
+local function chip(label, isOn, onClick)
+local b = new("TextButton", {
+LayoutOrder = #R.chips + 1, Size = UO(#label * 6 + 22, 24), BorderSizePixel = 0, AutoButtonColor = false, Text = label,
+TextColor3 = WHITE, TextSize = 11, Font = Enum.Font.Nunito, ZIndex = 22,
+}, chipRow)
+round(b, 12)
+R.chips[#R.chips + 1] = {b = b, isOn = isOn}
+b.MouseButton1Click:Connect(function() onClick(); paintChips(); L.csrRender() end)
+return b
+end
+local sortChip
+sortChip = chip("Sort: Newest", function() return R.sort ~= 1 end, function()
+R.sort = R.sort % #R.SORTS + 1
+sortChip.Text = "Sort: " .. R.SORTS[R.sort]
+end)
+sortChip.Size = UO(96, 24)
+chip("Keyless", function() return R.f.K end, function() R.f.K = not R.f.K end)
+chip("FE", function() return R.f.F end, function() R.f.F = not R.f.F end)
+chip("🌐 Universal", function() return R.f.U end, function() R.f.U = not R.f.U end)
+paintChips()
+local function hasKind(e, k) return type(e.kinds) == "string" and e.kinds:find(k, 1, true) ~= nil end
+local function viewList()
+local out = {}
+for _, e in ipairs(R.list) do
+if (not R.f.K or hasKind(e, "K")) and (not R.f.F or hasKind(e, "F")) and (not R.f.U or hasKind(e, "U")) then out[#out + 1] = e end
+end
+local seq = {}
+for i, e in ipairs(out) do seq[e] = i end
+local fc = L.favCount or {}
+table.sort(out, function(a, b)
+local ta, tb = tonumber(a.t) or 0, tonumber(b.t) or 0
+if R.sort == 2 and ta ~= tb then return ta < tb end
+if R.sort == 3 then
+local na, nb = tostring(a.name):lower(), tostring(b.name):lower()
+if na ~= nb then return na < nb end
+elseif R.sort == 4 then
+local fa, fb = fc[a.name] or 0, fc[b.name] or 0
+if fa ~= fb then return fa > fb end
+end
+if R.sort ~= 2 and ta ~= tb then return ta > tb end
+return seq[a] < seq[b]
+end)
+return out
+end
 new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
 new("UIPadding", {PaddingRight = UDim.new(0, 6)}, scroll)
 
@@ -4565,9 +4623,13 @@ round(c, 8)
 new("UIListLayout", {Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder}, c)
 new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 10), PaddingRight = UDim.new(0, 10)}, c)
 lbl(c, "✅ " .. clip(e.name, 60), 15, 0, 1)
-local kw = L.kindWords(e.kinds)
+local kw = L.kindWords((tostring(e.kinds or ""):gsub("U", "")))
 local info = "For " .. clip(e.player or "?", 40)
-if type(e.game) == "string" and e.game ~= "" then info = info .. "   •   " .. clip(e.game, 60) end
+if hasKind(e, "U") then
+info = info .. "   •   🌐 Universal"
+elseif type(e.game) == "string" and e.game ~= "" then
+info = info .. "   •   🎮 " .. clip(e.game, 60)
+end
 if kw ~= "" then info = info .. "   •   " .. kw end
 lbl(c, info, 12, 0.2, 2)
 local d = trim(e.desc)
@@ -4586,6 +4648,11 @@ notify("Copied", clip(e.name, 40))
 else
 notify("Can't copy", "This executor has no setclipboard", nil, 3)
 end
+end)
+local favB = button(row, 0, 0, 104, 26, L.isFav(e) and "❤️ Favorited" or "🤍 Favorite", Color3.fromRGB(58, 58, 90), 0, 23)
+favB.MouseButton1Click:Connect(function()
+L.toggleFav(e)
+L.csrRender()
 end)
 if isAdmin then
 local del = button(row, 0, 0, 80, 26, "Delete", RED, 0.3, 23)
@@ -4626,14 +4693,16 @@ if R.err then
 status.Text = "board: " .. tostring(R.err)
 elseif R.at then
 local ok, tm = pcall(os.date, "%H:%M", R.at)
-status.Text = "synced " .. (ok and tm or "") .. ", " .. #R.list .. " completed"
+local shown = viewList()
+status.Text = "synced " .. (ok and tm or "") .. ", " .. #shown .. (#shown == #R.list and "" or (" of " .. #R.list)) .. " completed"
 else
 status.Text = "loading..."
 end
-for i, e in ipairs(R.list) do addCard(e, i) end
-if #R.list == 0 and R.at then
+local shown = viewList()
+for i, e in ipairs(shown) do addCard(e, i) end
+if #shown == 0 and R.at then
 text(scroll, {
-Size = U2(1, 0, 0, 40), Text = "No completed scripts yet.", TextSize = 13, TextTransparency = 0.4,
+Size = U2(1, 0, 0, 40), Text = #R.list == 0 and "No completed scripts yet." or "No scripts match these filters.", TextSize = 13, TextTransparency = 0.4,
 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22, LayoutOrder = 1,
 })
 end
@@ -4662,6 +4731,7 @@ local rf = button(host, 0, 0, 74, 26, "Refresh", WHITE, 0.8, 22)
 rf.AnchorPoint, rf.Position, rf.TextSize = V2(1, 0), U2(1, -10, 0, 8), 12
 rf.MouseButton1Click:Connect(function() refresh(true) end)
 host:GetPropertyChangedSignal("Visible"):Connect(function()
+if host.Visible and R.at then L.csrRender() end
 if host.Visible and (not R.at or os.time() - R.at > 20) then refresh(false) end
 end)
 L.csrRender()

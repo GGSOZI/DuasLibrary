@@ -1416,6 +1416,48 @@ M2.gid, M2.kinds = nil, {}
 recolor()
 refreshSug()
 end
+-- sections picker (Dua's script): pick one or more tabs to put the script in
+M2.secs, M2.secChips = {}, {}
+M2.secCap = text(modalCard, {
+Position = UO(262, 237), Size = UO(220, 12), Font = Enum.Font.Nunito, Text = "Put it in (tap more than one):",
+TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42, Visible = false,
+})
+M2.SHORT = {["Dua's favorites"] = "Favs"}
+function M2.secPaint()
+for i, sec in ipairs(SECTIONS) do
+local on = M2.secs[sec.name]
+M2.secChips[i].BackgroundColor3 = on and accentColor or Color3.fromRGB(40, 40, 56)
+M2.secChips[i].Text = (on and "✔" or "") .. sec.icon .. (M2.SHORT[sec.name] or sec.name)
+end
+end
+for i, sec in ipairs(SECTIONS) do
+local b = button(modalCard, 262 + (i - 1) * 56, 251, 53, 22, "", Color3.fromRGB(40, 40, 56), 0, 42)
+b.TextSize, b.Visible = 10, false
+M2.secChips[i] = b
+b.MouseButton1Click:Connect(function()
+M2.secs[sec.name] = not M2.secs[sec.name] or nil
+M2.secPaint()
+end)
+end
+function M2.secShow(page, picked)
+local show = L.isSection[page] == true
+M2.secCap.Visible = show
+for _, b in ipairs(M2.secChips) do b.Visible = show end
+M2.secs = picked or {[page] = true}
+M2.secPaint()
+end
+function M2.load(e)
+setting = true
+M2.gameBox.Text = e.game or ""
+setting = false
+M2.gid = e.gid
+M2.kinds = {}
+for _, kd in ipairs(L.KINDS) do
+if type(e.kinds) == "string" and e.kinds:find(kd[1], 1, true) then M2.kinds[kd[1]] = true end
+end
+recolor()
+for _, b in ipairs(sugBtns) do b.Visible = false end
+end
 -- the card keeps fitting when the window is small
 local mScale = new("UIScale", {}, modalCard)
 local function fitCard()
@@ -1819,6 +1861,16 @@ if tile.Parent then tween(tile, FAST, {BackgroundColor3 = TILE}) end
 end)
 end)
 if (name == ADD_PAGE and (not entry.comm or isAdmin or entry.uid == tostring(LP.UserId))) or (L.isSection[name] and (L.owner() or (isAdmin and verName and type(entry.by) == "string" and entry.by:lower() == verName:lower()))) then
+if not entry.pending then
+local edB = new("TextButton", {
+AnchorPoint = V2(1, 0), Position = U2(1, -50, 0, 5), Size = UO(18, 18),
+BackgroundColor3 = Color3.fromRGB(58, 58, 100), BackgroundTransparency = 0.1, BorderSizePixel = 0,
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 11, Text = "✏️",
+TextColor3 = WHITE, ZIndex = 23,
+}, tile)
+round(edB, 9)
+edB.MouseButton1Click:Connect(function() L.startEdit(entry, name, isShared) end)
+end
 local del = new("TextButton", {
 AnchorPoint = V2(1, 0), Position = U2(1, -28, 0, 5), Size = UO(18, 18),
 BackgroundColor3 = RED, BackgroundTransparency = 0.15, BorderSizePixel = 0,
@@ -1856,10 +1908,115 @@ local modalPage
 local function openAddMenu(name)
 if not (name == ADD_PAGE or L.isSection[name]) then return end
 modalPage = name
+L.editing = nil
+modalAdd.Text = "Add script"
 modalTitle.Text = (name == ADD_PAGE) and "Add your script" or ("Add script to " .. name)
 nameBox.Text, codeBox.Text, descBox.Text = "", "", ""
 L.m.reset()
+L.m.secShow(name)
 modal.Visible = true
+end
+local function codeKey(c) return (tostring(c or ""):gsub("%s+", "")) end
+local function mineEntry(x) return L.owner() or (verName and type(x.by) == "string" and x.by:lower() == verName:lower()) or false end
+-- save to the picked sections. Same script code (or loadstring) already there = only the name is replaced, in every section it is in
+function L.saveSections(entry, e0)
+local secs, key = L.m.secs, codeKey(entry.code)
+local oldKey = e0 and codeKey(e0.code)
+local changed, added, renamed = {}, 0, 0
+local function copy() return {name = entry.name, code = entry.code, desc = entry.desc, by = entry.by, game = entry.game, gid = entry.gid, kinds = entry.kinds, t = entry.t} end
+for _, sec in ipairs(SECTIONS) do
+local list = entriesOf[sec.name]
+if e0 then
+local at
+for i, x in ipairs(list) do if x == e0 or codeKey(x.code) == oldKey then at = i break end end
+if secs[sec.name] then
+if at then
+local x = list[at]
+if mineEntry(x) then
+local old = {name = x.name, code = x.code}
+x.name, x.code, x.desc, x.game, x.gid, x.kinds = entry.name, entry.code, entry.desc, entry.game, entry.gid, entry.kinds
+L.favRetarget(old, x)
+changed[sec.name] = true
+end
+else
+table.insert(list, copy()); added = added + 1; changed[sec.name] = true
+end
+elseif at and mineEntry(list[at]) then
+if L.boardMarkDel then L.boardMarkDel(sec.name, list[at]) end
+table.remove(list, at)
+changed[sec.name] = true
+end
+else
+local found
+for _, x in ipairs(list) do
+if codeKey(x.code) == key then
+found = true
+if x.name ~= entry.name and mineEntry(x) then
+local old = {name = x.name, code = x.code}
+x.name = entry.name
+L.favRetarget(old, x)
+renamed = renamed + 1
+changed[sec.name] = true
+end
+end
+end
+if secs[sec.name] and not found then
+table.insert(list, copy()); added = added + 1; changed[sec.name] = true
+end
+end
+end
+if added > 0 and isAdmin then
+local fl, dup = adminPages[L.FAVD], false
+for _, x in ipairs(fl) do if x.name == entry.name and x.code == entry.code then dup = true end end
+if not dup then table.insert(fl, {name = entry.name, code = entry.code, by = entry.by, desc = entry.desc, game = entry.game, gid = entry.gid, kinds = entry.kinds, t = entry.t}) end
+end
+syncAdmin()
+for name in pairs(changed) do renderPage(name) end
+renderPage(L.FAVD)
+local msg = (added > 0 and ("Added to " .. added .. (added == 1 and " section" or " sections")) or "")
+if renamed > 0 then msg = msg .. (msg ~= "" and ", " or "") .. "renamed " .. renamed end
+notify(e0 and "Saved" or "Done", entry.name .. (msg ~= "" and ("  (" .. msg .. ")") or ""), nil, 3)
+end
+-- edit a script you shared (same window as adding, filled in)
+function L.startEdit(entry, name, isShared)
+if entry.comm and entry.uid ~= tostring(LP.UserId) and isAdmin and not adminOk() then return end
+if isAdmin and not entry.comm and (isShared or name ~= ADD_PAGE) and not adminOk() then return end
+modalPage = name
+L.editing = {entry = entry, page = name, shared = isShared}
+modalAdd.Text = "Save changes"
+modalTitle.Text = "Edit script"
+nameBox.Text, codeBox.Text, descBox.Text = entry.name or "", entry.code or "", entry.desc or ""
+L.m.load(entry)
+local picked
+if L.isSection[name] then
+picked = {}
+for _, sec in ipairs(SECTIONS) do
+for _, x in ipairs(entriesOf[sec.name]) do
+if x == entry or codeKey(x.code) == codeKey(entry.code) then picked[sec.name] = true break end
+end
+end
+picked[name] = true
+end
+L.m.secShow(name, picked)
+modal.Visible = true
+end
+-- keep favorites pointing at a script after it was edited
+function L.favRetarget(old, new)
+local changed = false
+local function go(list, full)
+for _, x in ipairs(list) do
+if x.name == old.name and x.code == old.code then
+x.name, x.code = new.name, new.code
+if full then x.desc, x.game, x.gid, x.kinds = new.desc, new.game, new.gid, new.kinds end
+changed = true
+end
+end
+end
+go(L.favs, false)
+go(adminPages[L.FAVD], true)
+if changed then
+if isAdmin then syncAdmin() else writeJson(FILE.FAVS, {list = L.favs}); task.delay(3, L.syncFavs) end
+end
 end
 local function flashRed(st)
 st.Color, st.Transparency = Color3.fromRGB(255, 90, 100), 0
@@ -1892,6 +2049,42 @@ end
 local entry = {name = nm, code = normalizeCode(code), desc = desc ~= "" and desc or nil, by = (modalPage == ADD_PAGE) and (verName or LP.Name) or nil,
 game = gname ~= "" and gname or nil, gid = gid and tostring(gid):sub(1, 15) or nil, kinds = kinds ~= "" and kinds or nil, t = os.time()}
 if modalPage ~= ADD_PAGE and isAdmin and not L.owner() then entry.by = verName or LP.Name end
+local ed = L.editing
+if ed then
+local e0 = ed.entry
+if e0.comm then
+if e0.uid ~= tostring(LP.UserId) and isAdmin and not adminOk() then return end
+L.editing = nil
+modal.Visible = false
+L.commEdit(e0, entry)
+return
+end
+if isAdmin and (ed.shared or ed.page ~= ADD_PAGE) and not adminOk() then return end
+if L.isSection[ed.page] then
+if next(L.m.secs) == nil then return notify("Pick a section", "Tap at least one section to put it in", nil, 3) end
+L.editing = nil
+modal.Visible = false
+L.saveSections(entry, e0)
+return
+end
+L.editing = nil
+local old = {name = e0.name, code = e0.code}
+e0.name, e0.code, e0.desc, e0.game, e0.gid, e0.kinds = entry.name, entry.code, entry.desc, entry.game, entry.gid, entry.kinds
+L.favRetarget(old, e0)
+if ed.shared or ed.page ~= ADD_PAGE then syncAdmin() else persist(ADD_PAGE) end
+renderPage(ed.page)
+renderPage(L.FAVD)
+modal.Visible = false
+notify("Saved", e0.name, nil, 2)
+return
+end
+if L.isSection[modalPage] then
+if next(L.m.secs) == nil then return notify("Pick a section", "Tap at least one section to put it in", nil, 3) end
+if isAdmin and not adminOk() then return end
+modal.Visible = false
+L.saveSections(entry, nil)
+return
+end
 local toShared = modalPage ~= ADD_PAGE or S.shareAdd
 if modalPage == ADD_PAGE and S.shareAdd and not isAdmin and L.commPush(nm, entry.code, entry.desc, entry.game, entry.gid, entry.kinds) then
 modal.Visible = false
@@ -3269,6 +3462,35 @@ else
 notify("Couldn't remove", tostring(L.boardErr or "write failed"), nil, 4)
 L.commBusy = false
 L.commPull()
+end
+end)
+end
+function L.commEdit(e, n)
+local url = L.shareBoardOf() or L.boardOf()
+if not url then return notify("Couldn't save", "The board isn't set up", nil, 4) end
+local oldName = e.name
+notify("Saving...", n.name, nil, 2)
+task.spawn(function()
+local d = L.bRead(url)
+if not d or type(d.shared) ~= "table" then return notify("Couldn't save", tostring(L.boardErr or "can't reach the board"), nil, 4) end
+local hit
+for _, x in ipairs(d.shared) do
+if tostring(x.u) == e.uid and tonumber(x.t) == e.t and tostring(x.n):sub(1, 40) == oldName then hit = x break end
+end
+if not hit then
+L.commBusy = false
+L.commPull()
+return notify("Couldn't save", "That script is no longer on the board", nil, 4)
+end
+hit.n, hit.c, hit.d, hit.g, hit.gi, hit.k = n.name, n.code, n.desc, n.game, n.gid, n.kinds
+if L.bWrite(url, d) then
+L.favRetarget({name = oldName, code = e.code}, n)
+L.commBusy = false
+L.commPull()
+if L.ping then L.ping("board") end
+notify("Saved", n.name, nil, 2)
+else
+notify("Couldn't save", tostring(L.boardErr or "write failed"), nil, 4)
 end
 end)
 end
@@ -4655,6 +4877,8 @@ L.toggleFav(e)
 L.csrRender()
 end)
 if isAdmin then
+local edB = button(row, 0, 0, 70, 26, "✏️ Edit", Color3.fromRGB(58, 58, 100), 0, 23)
+edB.MouseButton1Click:Connect(function() if R.startEdit then R.startEdit(e) end end)
 local del = button(row, 0, 0, 80, 26, "Delete", RED, 0.3, 23)
 del.MouseButton1Click:Connect(function()
 askConfirm('Remove "' .. clip(e.name, 40) .. '" from completed requests?', function()
@@ -4745,7 +4969,7 @@ Size = U2(1, 0, 1, 0), BackgroundColor3 = Color3.fromRGB(24, 24, 30), Background
 BorderSizePixel = 0, Active = true, Visible = false, ZIndex = 30,
 }, host)
 round(form, 10)
-text(form, {
+local formTitle = text(form, {
 Position = UO(12, 6), Size = U2(1, -24, 0, 22), Text = "Add completed script", TextSize = 16,
 TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 31,
 })
@@ -4981,13 +5205,60 @@ local save = button(form, 0, 0, 170, 34, "Add completed script", GREEN, 0, 31)
 save.AnchorPoint, save.Position = V2(0, 1), U2(0, 10, 1, -10)
 local cancel = button(form, 0, 0, 100, 34, "Cancel", WHITE, 0.85, 31)
 cancel.AnchorPoint, cancel.Position = V2(1, 1), U2(1, -10, 1, -10)
+local function clearForm()
+f.player.Text, f.name.Text, f.desc.Text, f.code.Text = "", "", "", ""
+for k in pairs(kinds) do kinds[k] = nil end
+recolorK()
+gset = true
+f.game.Text = ""
+gset = false
+gid = nil
+applyUni()
+end
+local function setMode(editing)
+R.editing = editing
+formTitle.Text = editing and "Edit completed script" or "Add completed script"
+save.Text = editing and "Save changes" or "Add completed script"
+end
 addBtn.MouseButton1Click:Connect(function()
 if not adminOk() then return end
+if R.editing then clearForm() end
+setMode(nil)
 form.Visible = true
 refreshPlayers()
 if not kinds.U then refreshGames() end
 end)
-cancel.MouseButton1Click:Connect(function() form.Visible = false end)
+function R.startEdit(e)
+if not adminOk() then return end
+setMode(e)
+pset = true
+f.player.Text = tostring(e.player or "")
+pset = false
+f.name.Text, f.desc.Text, f.code.Text = tostring(e.name or ""), tostring(e.desc or ""), tostring(e.code or "")
+for k in pairs(kinds) do kinds[k] = nil end
+for _, kd in ipairs(L.KINDS) do
+if hasKind(e, kd[1]) then kinds[kd[1]] = true end
+end
+recolorK()
+gset = true
+f.game.Text = tostring(e.game or "")
+gset = false
+gid = e.gid
+if kinds.U then
+applyUni()
+else
+f.game.TextEditable = true
+f.game.PlaceholderText = "Type a game, or a game ID"
+gSug.set({})
+end
+pSug.set({})
+form.Visible = true
+end
+cancel.MouseButton1Click:Connect(function()
+if R.editing then clearForm() end
+setMode(nil)
+form.Visible = false
+end)
 save.MouseButton1Click:Connect(function()
 if not adminOk() then return end
 local url = boardUrl()
@@ -5009,6 +5280,7 @@ if sname == "" then return notify("Script name", "Give the script a name", nil, 
 if code:match("^%s*$") then return notify("Script", "Paste the script or a link first", nil, 3) end
 if #code > MAXCODE then return notify("Script too long", "Max " .. MAXCODE .. " characters", nil, 3) end
 code = normalizeCode(code)
+local editing = R.editing
 R.saving = true
 task.spawn(function()
 local list, err = pull()
@@ -5016,6 +5288,19 @@ if not list then
 R.saving = false
 return notify("Completed requests", "Couldn't reach the board (" .. tostring(err) .. ")", nil, 4)
 end
+local hit
+if editing then
+for _, x in ipairs(list) do
+if (editing.id and x.id == editing.id) or (not editing.id and x.name == editing.name and x.code == editing.code and x.t == editing.t) then hit = x break end
+end
+if not hit then
+R.saving = false
+return notify("Completed requests", "That script is no longer on the board", nil, 4)
+end
+hit.player, hit.name, hit.desc, hit.code = player, sname, desc ~= "" and desc or nil, code
+hit.game, hit.gid = gname ~= "" and gname or nil, gid2 and tostring(gid2):sub(1, 15) or nil
+hit.kinds = kindStr() ~= "" and kindStr() or nil
+else
 while #list >= MAXLIST do table.remove(list, 1) end
 list[#list + 1] = {
 id = tostring(os.time()) .. tostring(math.random(100, 999)), player = player, name = sname,
@@ -5023,22 +5308,18 @@ game = gname ~= "" and gname or nil, gid = gid2 and tostring(gid2):sub(1, 15) or
 kinds = kindStr() ~= "" and kindStr() or nil,
 desc = desc ~= "" and desc or nil, code = code, by = verName or LP.Name, t = os.time(),
 }
+end
 local ok = L.bWrite(url, {requests = list})
 R.saving = false
 if not ok then return notify("Completed requests", "Couldn't save (" .. tostring(L.boardErr) .. ")", nil, 4) end
-f.player.Text, f.name.Text, f.desc.Text, f.code.Text = "", "", "", ""
-for k in pairs(kinds) do kinds[k] = nil end
-recolorK()
-gset = true
-f.game.Text = ""
-gset = false
-gid = nil
-applyUni()
+if editing then L.favRetarget({name = editing.name, code = editing.code}, {name = sname, code = code, desc = desc ~= "" and desc or nil, game = hit.game, gid = hit.gid, kinds = hit.kinds}) end
+clearForm()
+setMode(nil)
 form.Visible = false
 sortList(list)
 R.list, R.err, R.at = list, nil, os.time()
 L.csrRender()
-notify("Added", sname, nil, 2)
+notify(editing and "Saved" or "Added", sname, nil, 2)
 end)
 end)
 end

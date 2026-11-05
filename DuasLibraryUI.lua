@@ -3,6 +3,26 @@ game:GetService("Players"), game:GetService("TweenService"), game:GetService("Us
 game:GetService("RunService"), game:GetService("StarterGui"), game:GetService("HttpService")
 local LP = Players.LocalPlayer
 local PG = LP:WaitForChild("PlayerGui")
+-- Some games delete any unknown ScreenGui the moment it lands in PlayerGui ("tried to set the parent of DuaKNoUI to NULL"),
+-- so the hub is mounted in the executor's protected GUI container first (gethui / CoreGui) and PlayerGui is only the fallback.
+local GUI_HOST = PG
+do
+local host
+pcall(function() if gethui then host = gethui() end end)
+if not host then pcall(function() host = game:GetService("CoreGui"); local _ = host.Name end) end
+if host then GUI_HOST = host end
+end
+local function mountGui(g)
+pcall(function() if syn and syn.protect_gui then syn.protect_gui(g) end end)
+for _, h in ipairs({GUI_HOST, PG}) do
+local ok = pcall(function() g.Parent = h end)
+if ok and g.Parent == h then return true end
+end
+return false
+end
+local function findGui(name)
+return GUI_HOST:FindFirstChild(name) or PG:FindFirstChild(name)
+end
 -- @@EMBEDDED_BEGIN
 -- auto-managed block: the library rewrites it (auto-save, see CONFIG below); don't edit by hand
 local EMBEDDED_ADMINS = {
@@ -639,9 +659,10 @@ L.banner(n.from or "DuaKNo", n.text)
 end
 function L.banner(from, msg)
 notify("" .. tostring(from):sub(1, 24), tostring(msg):sub(1, 140), nil, 6)
-local old = PG:FindFirstChild("DuaKNoMsg")
+local old = findGui("DuaKNoMsg")
 if old then old:Destroy() end
-local gui = new("ScreenGui", {Name = "DuaKNoMsg", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999}, PG)
+local gui = new("ScreenGui", {Name = "DuaKNoMsg", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 999})
+mountGui(gui)
 local bar = new("Frame", {
 AnchorPoint = V2(0.5, 0), Position = U2(0.5, 0, 0, -90), Size = U2(0.8, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y,
 BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.35, BorderSizePixel = 0,
@@ -951,10 +972,13 @@ local function persist(name)
 if name == ADD_PAGE then writeJson(FILE.SCRIPTS, {[ADD_PAGE] = userScripts}) else syncAdmin() end
 end
 do
-local old = PG:FindFirstChild("DuaKNoUI")
+local old = findGui("DuaKNoUI")
 if old then old:Destroy() end
+local old2 = PG:FindFirstChild("DuaKNoUI")
+if old2 then old2:Destroy() end
 end
-local sg = new("ScreenGui", {Name = "DuaKNoUI", ResetOnSpawn = false, IgnoreGuiInset = true}, PG)
+local sg = new("ScreenGui", {Name = "DuaKNoUI", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 10})
+if not mountGui(sg) then warn("[DuaKNo] could not mount the hub UI") end
 function adminOk()
 if not isAdmin then return false end
 if LP.UserId ~= verId or LP.Name ~= verName then
@@ -5127,7 +5151,10 @@ if mv then mv:Disconnect() mv = nil end
 end
 local function canStart(i)
 if anywhere ~= true then return true end
-local top = PG:GetGuiObjectsAtPosition(i.Position.X, i.Position.Y)[1]
+local top
+local okT, hits = pcall(function() return sg.Parent:GetGuiObjectsAtPosition(i.Position.X, i.Position.Y) end)
+if not (okT and hits) then okT, hits = pcall(function() return PG:GetGuiObjectsAtPosition(i.Position.X, i.Position.Y) end) end
+if okT and hits then top = hits[1] end
 if not top then return true end
 if top:IsA("TextButton") or top:IsA("TextBox") or top:GetAttribute("NoDrag") then return false end
 if top:IsA("ScrollingFrame") and i.UserInputType == Enum.UserInputType.Touch then return false end

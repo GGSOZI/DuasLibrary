@@ -88,11 +88,11 @@ loadstring(game:HttpGet("https://pastebin.com/raw/VEniSJJZ"))()]]},
 local SELF_FILE = nil
 local SELF_CANDIDATES = {"DuasLibraryUI.lua", "DuasLibraryUI.txt", "DuaLibrary.lua", "DuaLibrary.txt"}
 local SIZE = UDim2.fromOffset(560, 350)
-local TITLE_H, PAD = 32, 10
+local TITLE_H, PAD = 34, 10
 local PARTICLE_MAX = 150
 local WINDOW_TITLE = "Dua's Library"
-local SB_CLOSED, SB_OPEN = 36, 140
-local SB_TWEEN = TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local SB_CLOSED, SB_OPEN = 44, 176
+local SB_TWEEN = TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
 local NOTIF_TIME = 2
 local FILE = {
 SETTINGS = "DuaLibrary_Settings.json", SCRIPTS = "DuaLibrary_Scripts.json", ADMIN = "DuaLibrary_Admin.json",
@@ -108,12 +108,12 @@ autoClose = true, autoCloseDelay = 2,
 soundOn = true, seenNotice = "", seenMsg = 0, rmDone = 0, favSig = "", reopen = false, reopenMig = false, chatTips = true, reloadUrl = "", antiAfk = false, fullbright = false, noFog = false, esp = false, clockTime = 14, maxZoom = 128,
 font = "Nunito", style = "Minimal", uiMig = false, bold = true,
 walkSpeed = 16, jumpPower = 50, gravity = 196.2, fov = 70, flySpeed = 60, infJump = false, noclip = false, fly = false,
-winW = 560, winH = 350,
+winW = 560, winH = 350, toggleKey = "RightShift", launcher = true, launX = 0.97, launY = 0.5, ui3Mig = false, ui4Mig = false, val = 1, themeName = "Violet", edgeW = 5, edgeAnim = true, edgeSpeed = 12,
 chatGames = false, shareGame = true, chatLang = "", chatLangLast = "", helpSeen = "",
-shareAdd = true, dmSeen = "", shareSort = "new", bgUrl = "", bgVis = 0.75, bgOn = true, bgMig = false, bgMig2 = false, bgPreset = 1,
+shareAdd = true, dmSeen = "", shareSort = "new", bgUrl = "", bgVis = 0.75, bgOn = true, bgMig = false, bgMig2 = false, bgPreset = 6, bgMig3 = false, ui5Mig = false, bgMig4 = false, ui6Mig = false, duaSort = "def", autoRun = true, autoDelay = 3, updSeen = 0, favFolder = "", ui7Mig = false,
 }
 local LIMITS = {
-hue = {0, 1}, sat = {0.05, 1}, winTrans = {0, 0.6},
+hue = {0, 1}, sat = {0.05, 1}, val = {0.1, 1}, edgeW = {1, 12}, edgeSpeed = {3, 30}, winTrans = {0, 0.6},
 particleCount = {0, PARTICLE_MAX}, speed = {0.2, 3}, autoCloseDelay = {1, 6},
 bgVis = {0.05, 0.9}, winW = {380, 1100}, winH = {260, 800}, walkSpeed = {0, 300}, jumpPower = {0, 300}, gravity = {0, 400}, fov = {30, 120}, flySpeed = {10, 300}, clockTime = {0, 24}, maxZoom = {10, 1000},
 }
@@ -129,9 +129,9 @@ nolog = {["Follow on Instagram"] = true, ["Join our Discord"] = true},
 }
 -- minimal navy palette (everything in the GUI draws from these)
 L.P = {
-card = Color3.fromRGB(24, 22, 40), ctrl = Color3.fromRGB(40, 37, 66), ctrlHot = Color3.fromRGB(58, 53, 94),
-input = Color3.fromRGB(15, 14, 27), line = Color3.fromRGB(66, 61, 104), muted = Color3.fromRGB(165, 159, 195),
-btn = Color3.fromRGB(108, 72, 192), info = Color3.fromRGB(58, 86, 156),
+card = Color3.fromRGB(21, 20, 29), ctrl = Color3.fromRGB(35, 34, 47), ctrlHot = Color3.fromRGB(49, 47, 66),
+input = Color3.fromRGB(13, 13, 19), line = Color3.fromRGB(58, 56, 78), muted = Color3.fromRGB(148, 146, 170),
+btn = Color3.fromRGB(100, 82, 190), info = Color3.fromRGB(58, 86, 156),
 }
 L.fills = setmetatable({}, {__mode = "k"})
 L.fitList = {}
@@ -179,6 +179,36 @@ new("UITextSizeConstraint", {MaxTextSize = max, MinTextSize = min}, l)
 end
 local function tween(o, t, props) TweenService:Create(o, t, props):Play() end
 local FAST = TweenInfo.new(0.15)
+L.SW = TweenInfo.new(0.22, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+L.PAGE = TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+L.PIN = TweenInfo.new(0.08, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+L.POUT = TweenInfo.new(0.2, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+L.pageHome = setmetatable({}, {__mode = "k"})
+L.cardHome = setmetatable({}, {__mode = "k"})
+L.pageTw = setmetatable({}, {__mode = "k"})
+L.cardTw = setmetatable({}, {__mode = "k"})
+-- dropdown rows fade in whenever they become visible
+function L.popIn(o)
+local bt = o.BackgroundTransparency
+local tt = o:IsA("TextButton") and o.TextTransparency or nil
+o:GetPropertyChangedSignal("Visible"):Connect(function()
+if not o.Visible then return end
+o.BackgroundTransparency = 1
+if tt then o.TextTransparency = 1 end
+local goal = {BackgroundTransparency = bt}
+if tt then goal.TextTransparency = tt end
+tween(o, TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), goal)
+end)
+end
+-- pressed feedback: shrink a hair on press, spring back on release / leave
+function L.press(b, amt)
+local sc = new("UIScale", {Name = "Press", Scale = 1}, b)
+local down = false
+b.MouseButton1Down:Connect(function() down = true; tween(sc, L.PIN, {Scale = amt or 0.96}) end)
+local function up() if down then down = false; tween(sc, L.POUT, {Scale = 1}) end end
+b.MouseButton1Up:Connect(up)
+b.MouseLeave:Connect(up)
+end
 local function button(parent, x, y, w, h, label, color, trans, z)
 if color == nil or color == WHITE then color, trans = L.P.ctrl, 0 end
 local b = new("TextButton", {
@@ -191,6 +221,7 @@ local hov = new("UIStroke", {Thickness = 1, Transparency = 1, Color = themeStrok
 themed[hov] = true
 b.MouseEnter:Connect(function() tween(hov, FAST, {Transparency = 0.3}) end)
 b.MouseLeave:Connect(function() tween(hov, FAST, {Transparency = 1}) end)
+L.press(b)
 return b
 end
 local function debounce(delay, fn)
@@ -214,6 +245,7 @@ if canSave then pcall(function() writefile(file, HttpService:JSONEncode(data)) e
 end
 L.lastSaved = {}
 L.cellH = setmetatable({}, {__mode = "k"})
+L.listGrids = setmetatable({}, {__mode = "k"})
 function L.packPages(pages)
 local codes, idx, out = {}, {}, {}
 for name, list in pairs(pages) do
@@ -261,8 +293,10 @@ L.unread = L.unread + 1
 if L.badge then L.badge() end
 end
 local function notify(t, msg, icon, dur)
+if not (L.toast and pcall(L.toast, t, msg, dur or NOTIF_TIME)) then
 pcall(StarterGui.SetCore, StarterGui, "SendNotification",
 {Title = t, Text = msg, Icon = icon, Duration = dur or NOTIF_TIME})
+end
 L.note(t, msg)
 end
 local S = table.clone(DEFAULTS)
@@ -302,14 +336,14 @@ end
 if ff then pcall(function() o.FontFace = ff end) end
 end
 L.styles = {
-{name = "Minimal", r = 0.8, stroke = 1, tile = L.P.card, hot = L.P.ctrlHot, tileT = 0, plus = L.P.ctrl, plusHot = L.P.ctrlHot, plusT = 0, wt = 0, pm = 0.7, hv = 1, ab = 1, img = true, barT = 0.25, sbT = 0.3},
-{name = "Shatter", r = 1.2, stroke = 1.1, tile = Color3.fromRGB(11, 11, 24), hot = Color3.fromRGB(40, 38, 74), tileT = 0, plus = L.P.btn, plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.05, tf = "FredokaOne", ab = 3, img = true, barT = 0.38, sbT = 0.3},
-{name = "Solid", r = 1, stroke = 1, tile = L.P.card, hot = Color3.fromRGB(34, 34, 44), tileT = 0, plus = L.P.btn, plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.04, tf = "FredokaOne", ab = 3},
-{name = "Glass", r = 1.4, stroke = 0.8, tile = L.P.ctrl, hot = Color3.fromRGB(84, 84, 116), tileT = 0, plus = Color3.fromRGB(80, 220, 130), plusHot = Color3.fromRGB(120, 255, 170), plusT = 0, wt = 0.22, pm = 0.8, hv = 1.06, tf = "Gotham", ab = 3, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(190,225,255), Color3.fromRGB(220,200,255), Color3.fromRGB(200,255,240)}},
-{name = "Sharp", r = 0.15, stroke = 1.6, tile = Color3.fromRGB(22, 22, 22), hot = Color3.fromRGB(48, 48, 48), tileT = 0, plus = Color3.fromRGB(40, 150, 60), plusHot = Color3.fromRGB(60, 190, 80), plusT = 0, wt = 0, pm = 1.3, hv = 1, tf = "GothamBlack", ab = 2},
-{name = "Neon", r = 0.8, stroke = 2.4, tile = Color3.fromRGB(4, 4, 8), hot = Color3.fromRGB(22, 14, 36), tileT = 0, plus = Color3.fromRGB(0, 190, 110), plusHot = Color3.fromRGB(30, 240, 150), plusT = 0, wt = 0, pm = 1.9, hv = 1.09, tf = "GothamBlack", ab = 5, pcol = {Color3.fromRGB(0,255,255), Color3.fromRGB(255,0,200), Color3.fromRGB(120,255,80), Color3.fromRGB(255,255,0)}},
-{name = "Soft", r = 1.8, stroke = 0.5, tile = Color3.fromRGB(46, 40, 66), hot = Color3.fromRGB(70, 60, 98), tileT = 0, plus = Color3.fromRGB(70, 190, 110), plusHot = Color3.fromRGB(90, 215, 130), plusT = 0, wt = 0.08, pm = 0.55, hv = 1.07, tf = "Cartoon", ab = 4, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(255,200,225), Color3.fromRGB(255,230,200), Color3.fromRGB(210,255,225)}},
-{name = "Terminal", r = 0, stroke = 1.4, tile = Color3.fromRGB(0, 14, 0), hot = Color3.fromRGB(0, 40, 6), tileT = 0, plus = Color3.fromRGB(0, 120, 30), plusHot = Color3.fromRGB(0, 160, 44), plusT = 0, wt = 0, pm = 0.45, hv = 1, tf = "Code", ab = 2, pcol = {Color3.fromRGB(0,255,70), Color3.fromRGB(0,200,50), Color3.fromRGB(120,255,120), Color3.fromRGB(0,150,40)}},
+{name = "Minimal", r = 0.6, stroke = 1.8, tile = L.P.card, hot = L.P.ctrlHot, tileT = 0, plus = L.P.ctrl, plusHot = L.P.ctrlHot, plusT = 0, wt = 0, pm = 0.7, hv = 1, ab = 1, img = true, barT = 0.25, sbT = 0.3},
+{name = "Shatter", r = 1.2, stroke = 2, tile = Color3.fromRGB(11, 11, 24), hot = Color3.fromRGB(40, 38, 74), tileT = 0, plus = L.P.btn, plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.05, tf = "FredokaOne", ab = 3, img = true, barT = 0.38, sbT = 0.3},
+{name = "Solid", r = 1, stroke = 1.8, tile = L.P.card, hot = Color3.fromRGB(34, 34, 44), tileT = 0, plus = L.P.btn, plusHot = Color3.fromRGB(46, 190, 90), plusT = 0, wt = 0, pm = 1, hv = 1.04, tf = "FredokaOne", ab = 3},
+{name = "Glass", r = 1.4, stroke = 1.5, tile = L.P.ctrl, hot = Color3.fromRGB(84, 84, 116), tileT = 0, plus = Color3.fromRGB(80, 220, 130), plusHot = Color3.fromRGB(120, 255, 170), plusT = 0, wt = 0.22, pm = 0.8, hv = 1.06, tf = "Gotham", ab = 3, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(190,225,255), Color3.fromRGB(220,200,255), Color3.fromRGB(200,255,240)}},
+{name = "Sharp", r = 0.15, stroke = 2.6, tile = Color3.fromRGB(22, 22, 22), hot = Color3.fromRGB(48, 48, 48), tileT = 0, plus = Color3.fromRGB(40, 150, 60), plusHot = Color3.fromRGB(60, 190, 80), plusT = 0, wt = 0, pm = 1.3, hv = 1, tf = "GothamBlack", ab = 2},
+{name = "Neon", r = 0.8, stroke = 3.6, tile = Color3.fromRGB(4, 4, 8), hot = Color3.fromRGB(22, 14, 36), tileT = 0, plus = Color3.fromRGB(0, 190, 110), plusHot = Color3.fromRGB(30, 240, 150), plusT = 0, wt = 0, pm = 1.9, hv = 1.09, tf = "GothamBlack", ab = 5, pcol = {Color3.fromRGB(0,255,255), Color3.fromRGB(255,0,200), Color3.fromRGB(120,255,80), Color3.fromRGB(255,255,0)}},
+{name = "Soft", r = 1.8, stroke = 1.1, tile = Color3.fromRGB(46, 40, 66), hot = Color3.fromRGB(70, 60, 98), tileT = 0, plus = Color3.fromRGB(70, 190, 110), plusHot = Color3.fromRGB(90, 215, 130), plusT = 0, wt = 0.08, pm = 0.55, hv = 1.07, tf = "Cartoon", ab = 4, pcol = {Color3.fromRGB(255,255,255), Color3.fromRGB(255,200,225), Color3.fromRGB(255,230,200), Color3.fromRGB(210,255,225)}},
+{name = "Terminal", r = 0, stroke = 2.4, tile = Color3.fromRGB(0, 14, 0), hot = Color3.fromRGB(0, 40, 6), tileT = 0, plus = Color3.fromRGB(0, 120, 30), plusHot = Color3.fromRGB(0, 160, 44), plusT = 0, wt = 0, pm = 0.45, hv = 1, tf = "Code", ab = 2, pcol = {Color3.fromRGB(0,255,70), Color3.fromRGB(0,200,50), Color3.fromRGB(120,255,120), Color3.fromRGB(0,150,40)}},
 }
 function L.cur()
 for _, st in ipairs(L.styles) do if st.name == S.style then return st end end
@@ -321,7 +355,14 @@ local scheduleSave = debounce(0.4, function() writeJson(FILE.SETTINGS, S) end)
 if not S.reopenMig then S.reopenMig, S.reopen = true, false; scheduleSave() end
 if L.uiMigrated then scheduleSave() end
 if not S.bgMig then S.bgMig, S.style = true, (S.uiMig and "Minimal" or "Shatter"); scheduleSave() end
+if not S.ui3Mig then S.ui3Mig, S.style = true, "Minimal"; L.rs, L.ss = L.cur().r, L.cur().stroke; L.pm, L.hv = L.cur().pm or 1, L.cur().hv or 1.04; scheduleSave() end
+if not S.ui4Mig then S.ui4Mig, S.autoClose, S.winW, S.winH = true, false, 720, 430; scheduleSave() end
 if not S.bgMig2 then S.bgMig2, S.bgVis, S.winTrans, S.bgPreset = true, 0.75, 0.6, 1; scheduleSave() end
+if not S.bgMig3 then S.bgMig3, S.bgPreset = true, 4; scheduleSave() end
+if not S.bgMig4 then S.bgMig4, S.bgPreset = true, 6; scheduleSave() end
+if not S.ui6Mig then S.ui6Mig, S.particleCount = true, 70; scheduleSave() end
+if not S.ui7Mig then S.ui7Mig, S.updSeen = true, os.time(); scheduleSave() end
+if not S.ui5Mig then S.ui5Mig, S.edgeW = true, 5; scheduleSave() end
 local SND = {
 click = "rbxassetid://140207837688369", ok = "rbxassetid://135165335432475", run = "rbxassetid://100754383843032",
 }
@@ -335,7 +376,21 @@ game:GetService("Debris"):AddItem(snd, 8)
 snd:Play()
 end)
 end
-function L.ckey(c) return (tostring(c or ""):gsub("%s+", "")) end
+L.ckCache = {}
+function L.ago(t)
+local d = os.time() - t
+if d < 60 then return "just now" end
+if d < 3600 then return math.floor(d / 60) .. "m ago" end
+if d < 86400 then return math.floor(d / 3600) .. "h ago" end
+return math.floor(d / 86400) .. "d ago"
+end
+function L.ckey(c)
+c = tostring(c or "")
+if #c < 3000 then return (c:gsub("%s+", "")) end
+local r = L.ckCache[c]
+if not r then r = (c:gsub("%s+", "")); L.ckCache[c] = r end
+return r
+end
 function L.eKey(e) return tostring(e.by or e.uid or ""):lower() .. "\0" .. tostring(e.name or ""):lower() .. "\0" .. L.ckey(e.code) end
 -- a paste that arrived twice in a row (same text repeated) is collapsed to one copy
 function L.undouble(code)
@@ -922,6 +977,7 @@ local SECTIONS = {
 {name = "Weapons", icon = ""}, {name = "Utility", icon = ""},
 }
 local ITEMS = {
+{name = "Updates", icon = "", custom = true, sub = "Newest scripts added to Dua's Script and Completed requests"},
 {name = L.DUA, icon = ""},
 {name = "Completed script request", icon = "", custom = true, sub = "Scripts Dua finished for players' requests"},
 {name = L.FAVP, icon = ""},
@@ -979,6 +1035,52 @@ if old2 then old2:Destroy() end
 end
 local sg = new("ScreenGui", {Name = "DuaKNoUI", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 10})
 if not mountGui(sg) then warn("[DuaKNo] could not mount the hub UI") end
+do
+local old = findGui("DuaKNoToasts")
+if old then pcall(function() old:Destroy() end) end
+local tg = new("ScreenGui", {Name = "DuaKNoToasts", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 20})
+local ok = mountGui(tg)
+sg.Destroying:Connect(function() pcall(function() tg:Destroy() end) end)
+local stack
+if ok then
+stack = new("Frame", {AnchorPoint = V2(1, 1), Position = U2(1, -14, 1, -14), Size = UO(244, 400), BackgroundTransparency = 1}, tg)
+new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Bottom, HorizontalAlignment = Enum.HorizontalAlignment.Right}, stack)
+end
+local seq = 0
+function L.toast(t, msg, dur)
+if not stack or not stack.Parent then error("no toast host") end
+seq = seq + 1
+local kids = stack:GetChildren()
+local count = 0
+for _, k in ipairs(kids) do if k:IsA("Frame") then count = count + 1 end end
+if count >= 4 then
+for _, k in ipairs(kids) do if k:IsA("Frame") then k:Destroy() break end end
+end
+local holder = new("Frame", {Size = UO(240, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, LayoutOrder = seq}, stack)
+local card = new("Frame", {Position = UO(270, 0), Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundColor3 = L.P.card, BorderSizePixel = 0}, holder)
+round(card, 8)
+new("UIStroke", {Thickness = 1, Color = L.P.line, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, card)
+new("Frame", {Size = U2(0, 2, 1, 0), BackgroundColor3 = accentColor, BorderSizePixel = 0}, card)
+local body = new("Frame", {Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1}, card)
+new("UIPadding", {PaddingLeft = UDim.new(0, 12), PaddingRight = UDim.new(0, 10), PaddingTop = UDim.new(0, 7), PaddingBottom = UDim.new(0, 8)}, body)
+new("UIListLayout", {Padding = UDim.new(0, 2), SortOrder = Enum.SortOrder.LayoutOrder}, body)
+text(body, {Size = U2(1, 0, 0, 16), Text = tostring(t), TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, LayoutOrder = 1})
+text(body, {Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, Text = tostring(msg), TextSize = 11, TextColor3 = L.P.muted, TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, LayoutOrder = 2})
+tween(card, TweenInfo.new(0.32, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UO(0, 0)})
+task.delay(math.max(dur or 2, 2.5), function()
+if not holder.Parent then return end
+local h = holder.AbsoluteSize.Y
+tween(card, TweenInfo.new(0.22, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {Position = UO(270, 0)})
+task.wait(0.22)
+if not holder.Parent then return end
+holder.AutomaticSize = Enum.AutomaticSize.None
+holder.Size = UO(240, h)
+tween(holder, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {Size = UO(240, 0)})
+task.wait(0.17)
+holder:Destroy()
+end)
+end
+end
 function adminOk()
 if not isAdmin then return false end
 if LP.UserId ~= verId or LP.Name ~= verName then
@@ -992,7 +1094,7 @@ end
 SIZE = UDim2.fromOffset(S.winW, S.winH)
 local shadow = new("Frame", {
 AnchorPoint = V2(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = SIZE,
-BackgroundColor3 = Color3.fromRGB(10, 0, 25), BackgroundTransparency = 0.35,
+BackgroundColor3 = Color3.new(0, 0, 0), BackgroundTransparency = 0.5,
 BorderSizePixel = 0, ZIndex = 0,
 }, sg)
 round(shadow, 12)
@@ -1007,6 +1109,11 @@ ClipsDescendants = true, Active = true, ZIndex = 1,
 round(win, 12)
 local bgGrad = new("UIGradient", {Rotation = 90}, win)
 local winStroke = outline(win, 1.5, 0.1)
+themed[winStroke] = nil
+L.strokes[winStroke] = nil
+winStroke.Color, winStroke.Transparency = WHITE, 0
+L.winStroke = winStroke
+L.edgeGrad = new("UIGradient", {Rotation = 45}, winStroke)
 L.bgImg = new("ImageLabel", {
 Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Crop, Image = "",
 ImageTransparency = 0.65, Visible = false, ZIndex = 0,
@@ -1039,28 +1146,22 @@ do
 local layerW = SIZE.X.Offset - PAD * 2
 local layerH = SIZE.Y.Offset - TITLE_H - PAD * 2
 local X_MIN = SB_CLOSED - PAD + 6
-local shapes = {"circle", "square", "triangle"}
 for i = 1, PARTICLE_MAX do
-local kind, sz = shapes[math.random(3)], math.random(4, 13)
-local o
-if kind == "triangle" then
-o = new("TextLabel", {
-Text = "▲", Font = Enum.Font.Nunito, TextSize = math.max(8, math.floor(sz * 1.9)),
-BackgroundTransparency = 1, Size = UO(sz * 2, sz * 2),
-})
-else
-o = new("Frame", {BorderSizePixel = 0, Size = UO(sz, sz)})
-round(o, kind == "circle" and 99 or 3)
-end
+local depth = 0.35 + math.random() * 0.65
+local sz = math.max(2, math.floor(1.5 + depth * 3.5 + 0.5))
+local kind = (math.random() < 0.72) and "circle" or "diamond"
+local o = new("Frame", {BorderSizePixel = 0, Size = UO(sz, sz)})
+round(o, kind == "circle" and 99 or 1)
 o.AnchorPoint, o.ZIndex, o.Parent = V2(0.5, 0.5), 2, layer
 parts[i] = {
-o = o, s = sz, kind = kind, ci = math.random(4),
-baseTrans = 0.55 + (1 - (sz - 4) / 9) * 0.3,
+o = o, s = sz, kind = kind, ci = math.random(4), depth = depth,
+baseTrans = 0.65 - depth * 0.3,
 x = math.random(X_MIN, math.max(layerW - sz, X_MIN + 1)),
 y = math.random(-20, layerH + 30),
-vy = math.random(16, 24),
-rot = math.random(0, 360),
-spin = math.random(10, 28) * (math.random(2) == 1 and 1 or -1),
+vy = 10 + depth * 18,
+sway = 3 + math.random() * 9, swayF = 0.4 + math.random() * 0.8,
+ph = math.random() * 6.28, tw = 1 + math.random() * 2,
+rot = math.random(0, 360), spin = math.random(14, 40) * (math.random(2) == 1 and 1 or -1),
 }
 end
 local shadowPos, shadowOff = V2(0.5, 0.5), V2(0, 0)
@@ -1085,22 +1186,26 @@ dt, L.pacc = math.min(L.pacc, 1 / 20), 0
 if ab.X > 250 then layerW, layerH = ab.X - PAD * 2, ab.Y - TITLE_H - PAD * 2 end
 local count = S.particlesOn and S.particleCount or 0
 local speed = S.speed * L.pm
+L.pt = (L.pt or 0) + dt
+local t = L.pt
 for i = 1, count do
 local p = parts[i]
 p.y = p.y + p.vy * speed * dt
 if p.y > layerH + p.s then
 p.y = -math.random(0, 20)
 p.x = math.random(X_MIN, math.max(layerW - p.s, X_MIN + 1))
-p.spin = math.random(10, 28) * (math.random(2) == 1 and 1 or -1)
 end
-p.rot = (p.rot + p.spin * speed * dt) % 360
 local alpha = 1
 if p.y > layerH - 55 then alpha = math.clamp((layerH + p.s - p.y) / 55, 0, 1) end
 if p.y < 45 then alpha = math.min(alpha, math.clamp(p.y / 45, 0, 1)) end
-local tr = p.baseTrans + (1 - p.baseTrans) * (1 - alpha)
-if p.kind == "triangle" then p.o.TextTransparency = tr else p.o.BackgroundTransparency = tr end
-p.o.Position = U2(0, p.x, 1, -p.y)
+local twinkle = 0.5 + 0.5 * math.sin(t * p.tw + p.ph)
+local tr = p.baseTrans + (1 - p.baseTrans) * (1 - alpha) + 0.22 * (1 - twinkle) * alpha
+p.o.BackgroundTransparency = math.min(tr, 1)
+p.o.Position = U2(0, p.x + math.sin(t * p.swayF + p.ph) * p.sway, 1, -p.y)
+if p.kind == "diamond" then
+p.rot = (p.rot + p.spin * speed * dt) % 360
 p.o.Rotation = p.rot
+end
 end
 end)
 end
@@ -1117,6 +1222,27 @@ Position = UO(SB_CLOSED + 10, 0), Size = U2(1, -(SB_CLOSED + 152), 1, 0),
 Text = WINDOW_TITLE, TextSize = 15, Font = Enum.Font.FredokaOne, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 4,
 })
 fit(title, 15, 10)
+L.busyN = 0
+do
+local loadBar = new("Frame", {AnchorPoint = V2(0, 1), Position = U2(0, 0, 1, 0), Size = U2(0.28, 0, 0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, Visible = false, ZIndex = 6}, bar)
+local loadTween
+function L.busyUpdate()
+local on = L.busyN > 0 and not minimized
+loadBar.Visible = on
+if on and not loadTween then
+loadBar.BackgroundColor3 = accentColor
+loadBar.Position = U2(0, 0, 1, 0)
+loadTween = TweenService:Create(loadBar, TweenInfo.new(0.8, Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Position = U2(0.72, 0, 1, 0)})
+loadTween:Play()
+elseif not on and loadTween then
+loadTween:Cancel(); loadTween = nil
+end
+end
+function L.busy(d)
+L.busyN = math.max(0, L.busyN + d)
+if L.busyN > 0 then L.busyUpdate() else task.delay(0.3, function() if L.busyN == 0 then L.busyUpdate() end end) end
+end
+end
 local minBtn = new("TextButton", {
 AnchorPoint = V2(1, 0.5), Position = U2(1, -8, 0.5, 0), Size = UO(22, 22),
 BackgroundColor3 = L.P.ctrl, BackgroundTransparency = 0, BorderSizePixel = 0,
@@ -1127,6 +1253,7 @@ round(minBtn, 6)
 L.miniImg = new("ImageLabel", {AnchorPoint = V2(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UDim2.fromScale(1, 1), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, Visible = false, ZIndex = 5}, minBtn)
 minBtn.MouseEnter:Connect(function() if minimized then return end tween(minBtn, FAST, {BackgroundColor3 = L.P.ctrlHot}) end)
 minBtn.MouseLeave:Connect(function() if minimized then return end tween(minBtn, FAST, {BackgroundColor3 = L.P.ctrl}) end)
+L.press(minBtn, 0.9)
 local content = new("Frame", {
 Position = UO(SB_CLOSED, TITLE_H), Size = U2(1, -SB_CLOSED, 1, -TITLE_H),
 BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 3,
@@ -1179,6 +1306,49 @@ end
 return table.concat(out)
 end
 L.ICON_B64 = "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"
+L.ATLAS_B64 = "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"
+L.NAVICON = {Updates = 12, ["Dua's script"] = 0, ["Completed script request"] = 1, Favorited = 2, ["Share Script"] = 3, ["ScriptBlox scripts"] = 4, ["Global chat"] = 5, Workshop = 6, Universal = 7, Info = 8, Admin = 11}
+L.KIND_ICON = {U = 7, F = 13, K = 14}
+function L.icon(parent, idx, px, props)
+if not L.atlasURL then return nil end
+local o = new("ImageLabel", {
+BackgroundTransparency = 1, Size = UO(px, px), Image = L.atlasURL,
+ImageRectOffset = Vector2.new((idx % 6) * 32, math.floor(idx / 6) * 32), ImageRectSize = Vector2.new(32, 32),
+ZIndex = (parent.ZIndex or 1) + 1,
+}, parent)
+if props then for k, v in pairs(props) do o[k] = v end end
+return o
+end
+-- one icon per type, and icons combine: Universal > FE > Keyless picks the big icon, the others sit on its corner
+function L.kindBadgeInto(parent, kinds, px)
+for _, c in ipairs(parent:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+local list = {}
+if type(kinds) == "string" then
+for _, k in ipairs({"U", "F", "K"}) do if kinds:find(k, 1, true) then list[#list + 1] = k end end
+end
+if #list == 0 or not L.atlasURL then return false end
+local col = L.P.ctrl
+for _, kd in ipairs(L.KINDS) do if kd[1] == list[1] then col = kd[3] end end
+parent.BackgroundColor3 = col:Lerp(Color3.new(0, 0, 0), 0.62)
+local big = math.floor(px * (#list == 1 and 0.72 or 0.6))
+local small = math.floor(px * 0.42)
+L.icon(parent, L.KIND_ICON[list[1]], big, {AnchorPoint = V2(0.5, 0.5), Position = (#list == 1) and U2(0.5, 0, 0.5, 0) or U2(0.4, 0, 0.42, 0)})
+if list[2] then L.icon(parent, L.KIND_ICON[list[2]], small, {AnchorPoint = V2(1, 1), Position = U2(1, -1, 1, -1)}) end
+if list[3] then L.icon(parent, L.KIND_ICON[list[3]], small, {AnchorPoint = V2(1, 0), Position = U2(1, -1, 0, 1)}) end
+return true
+end
+L.navIcons = {}
+do
+local custom = typeof(getcustomasset) == "function" and getcustomasset or (typeof(getsynasset) == "function" and getsynasset)
+if custom and canSave then
+local ok, url = pcall(function()
+local f = "DuaLibrary_Icons_v2.png"
+if not (isfile(f) and #readfile(f) > 200) then writefile(f, L.b64dec(L.ATLAS_B64)) end
+return custom(f)
+end)
+if ok and type(url) == "string" and url ~= "" then L.atlasURL = url end
+end
+end
 task.spawn(function()
 local ICON_ID, ICON_FILE = "80894127006690", "DuaLibrary_Icon_v4.png"
 local function loaded(secs)
@@ -1259,13 +1429,13 @@ local closeToken = 0
 local setOpen
 do
 local avatar = new("ImageLabel", {
-AnchorPoint = V2(0, 1), Position = U2(0, 5, 1, -22), Size = UO(26, 26), BackgroundColor3 = L.P.ctrl,
+AnchorPoint = V2(0, 1), Position = U2(0, 9, 1, -22), Size = UO(26, 26), BackgroundColor3 = L.P.ctrl,
 BorderSizePixel = 0, Image = "", ZIndex = 10,
 }, sidebar)
 round(avatar, 99)
 outline(avatar, 1.5, 0.2)
 local nm = text(sidebar, {
-AnchorPoint = V2(0, 1), Position = U2(0, 38, 1, -22), Size = U2(1, -44, 0, 26), Text = LP.DisplayName, TextSize = 12,
+AnchorPoint = V2(0, 1), Position = U2(0, 44, 1, -22), Size = U2(1, -50, 0, 26), Text = LP.DisplayName, TextSize = 12,
 TextXAlignment = Enum.TextXAlignment.Left, TextTransparency = 1, ZIndex = 10,
 })
 fit(nm, 12, 8)
@@ -1287,12 +1457,43 @@ local function selectItem(name)
 selected = name
 if name == ADD_PAGE and L.commPull and os.clock() - (L.commLast or -99) > 8 then L.commPull() end
 for n, row in pairs(rows) do
-tween(row, FAST, {BackgroundTransparency = (n == name) and 0.1 or 1})
+tween(row, FAST, {BackgroundTransparency = (n == name) and 0.72 or 1}) if L.navIcons[n] then tween(L.navIcons[n], FAST, {ImageTransparency = (n == name) and 0 or 0.35}) end
 end
-for n, b in pairs(bars) do tween(b, FAST, {BackgroundTransparency = (n == name) and 0 or 1}) end
-tween(headHL, FAST, {BackgroundTransparency = (name == "Settings") and 0.1 or 1})
-for n, page in pairs(pages) do page.Visible = (n == name) end
+for n, b in pairs(bars) do tween(b, SB_TWEEN, {BackgroundTransparency = (n == name) and 0 or 1, Size = (n == name) and UO(3, 18) or UO(3, 6)}) end
+tween(headHL, FAST, {BackgroundTransparency = (name == "Settings") and 0.72 or 1})
+for n, page in pairs(pages) do
+local on = (n == name)
+local home = L.pageHome[page]
+if on and not page.Visible then
+if not home then home = page.Position; L.pageHome[page] = home end
+page.Position = home + UO(0, 12)
+page.Visible = true
+if L.pageTw[page] then L.pageTw[page]:Cancel() end
+local tw = TweenService:Create(page, L.PAGE, {Position = home})
+L.pageTw[page] = tw
+tw:Play()
+elseif not on then
+if L.pageTw[page] then L.pageTw[page]:Cancel() end
+page.Visible = false
+if home then page.Position = home end
+end
+end
+if L.pageUI then
+local cur = L.pageUI[L.uiOf[name] or name]
+for _, u in pairs(L.pageUI) do if u ~= cur then u.lastKey = nil end end
+end
 if L.renderDirty then L.renderDirty(name) end
+if name == "Updates" and L.refreshUpdates then
+L.refreshUpdates()
+task.delay(2, function()
+local p = pages["Updates"]
+if p and p.Visible then
+S.updSeen = os.time()
+scheduleSave()
+if L.updDot then L.updDot() end
+end
+end)
+end
 end
 function setOpen(state)
 opened = state
@@ -1312,12 +1513,13 @@ AnchorPoint = anchor, Position = pos, Size = UO(34, 18),
 Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 21,
 }, parent)
 round(btn, 99)
+L.press(btn, 0.93)
 local knob = new("Frame", {AnchorPoint = V2(0, 0.5), Size = UO(12, 12), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 22}, btn)
 round(knob, 99)
 local function refresh()
 local on = S[key]
-tween(knob, FAST, {Position = U2(0, on and 19 or 3, 0.5, 0)})
-tween(btn, FAST, {BackgroundColor3 = on and themeBtn or L.P.line})
+tween(knob, L.SW, {Position = U2(0, on and 19 or 3, 0.5, 0)})
+tween(btn, L.SW, {BackgroundColor3 = on and themeBtn or L.P.line})
 end
 refreshers[#refreshers + 1] = refresh
 btn.MouseButton1Click:Connect(function()
@@ -1331,12 +1533,14 @@ if typeof(loadstring) ~= "function" then return notify("Can't run script", "This
 notify("Running", entry.name)
 if L.pushHist then L.pushHist(entry) end
 playSound(SND.run)
+L.busy(1)
 task.spawn(function()
 local setId = setthreadidentity or set_thread_identity or setidentity or (syn and syn.set_thread_identity)
 if setId then pcall(setId, 8) end
 local fn, err = loadstring(entry.code)
-if not fn then L.mark(entry.code, false, err) notify("Script error: " .. entry.name, tostring(err):sub(1, 120), nil, 3) return end
+if not fn then L.busy(-1) L.mark(entry.code, false, err) notify("Script error: " .. entry.name, tostring(err):sub(1, 120), nil, 3) return end
 local ok, e = pcall(fn)
+L.busy(-1)
 L.mark(entry.code, ok, not ok and e or nil)
 if not ok then notify("Error in " .. entry.name, tostring(e):sub(1, 120), nil, 3) end
 end)
@@ -1347,6 +1551,28 @@ Name = name, Size = UDim2.fromScale(1, 1), BackgroundColor3 = Color3.new(0, 0, 0
 BackgroundTransparency = 0.3, BorderSizePixel = 0, Active = true, Visible = false, ZIndex = z,
 }, win)
 round(f, 12)
+local baseT = f.BackgroundTransparency
+local ovTw
+f:GetPropertyChangedSignal("Visible"):Connect(function()
+if ovTw then ovTw:Cancel(); ovTw = nil end
+for _, c in ipairs(f:GetChildren()) do
+if c:IsA("Frame") and c.AnchorPoint == V2(0.5, 0.5) then
+local home = L.cardHome[c]
+if not home then home = c.Position; L.cardHome[c] = home end
+if L.cardTw[c] then L.cardTw[c]:Cancel(); L.cardTw[c] = nil end
+c.Position = f.Visible and (home + UO(0, 14)) or home
+if f.Visible then
+local tw = TweenService:Create(c, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = home})
+L.cardTw[c] = tw
+tw:Play()
+end
+end
+end
+if not f.Visible then f.BackgroundTransparency = baseT return end
+f.BackgroundTransparency = 1
+ovTw = TweenService:Create(f, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {BackgroundTransparency = baseT})
+ovTw:Play()
+end)
 return f
 end
 local function card(parent, w, h, z)
@@ -1373,7 +1599,7 @@ L.modalLabel(18, 40, 200, "NAME")
 L.modalLabel(18, 90, 230, "SCRIPT OR LINK")
 L.modalLabel(18, 198, 230, "ADD A DESCRIPTION (optional)")
 L.modalLabel(262, 40, 220, "WHAT GAME IS IT FOR? (name or game ID)")
-L.modalLabel(262, 190, 220, "TYPE (tick all that apply)")
+L.modalLabel(262, 190, 180, "TYPE (Universal needs no game)")
 local function inputBox(parent, x, y, w, h, placeholder, multi, z)
 local tb = new("TextBox", {
 Position = UO(x, y), Size = UO(w, h), BackgroundColor3 = L.P.input,
@@ -1387,8 +1613,8 @@ MultiLine = multi, TextWrapped = multi, ClipsDescendants = true,
 round(tb, 8)
 new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 8), PaddingTop = UDim.new(0, multi and 6 or 0)}, tb)
 local st = new("UIStroke", {Thickness = 1, Transparency = 0, Color = L.P.line, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, tb)
-tb.Focused:Connect(function() st.Color = themeStroke end)
-tb.FocusLost:Connect(function() st.Color = L.P.line end)
+tb.Focused:Connect(function() tween(st, FAST, {Color = themeStroke}) end)
+tb.FocusLost:Connect(function() tween(st, FAST, {Color = L.P.line}) end)
 return tb, st
 end
 local nameBox, nameStroke = inputBox(modalCard, 18, 55, 232, 30, "Name your script", false, 42)
@@ -1399,6 +1625,45 @@ local modalAdd = button(modalCard, 18, 278, 300, 32, "Add script", L.P.btn, 0, 4
 local modalCancel = button(modalCard, 326, 276, 156, 34, "Cancel", WHITE, 0.85, 42)
 -- game picker: closest matches while typing, game id lookup, Keyless / Universal / FE
 L.m = {kinds = {}}
+do
+local lf = button(modalCard, 160, 86, 90, 18, "Load file", L.P.ctrl, 0, 43)
+lf.TextSize = 10
+L.m.lf = lf
+function L.m.setBig(code)
+L.m.big = code
+L.m.settingBig = true
+codeBox.TextEditable = false
+codeBox.Text = "-- Large script: " .. #code .. " characters. Kept safely, not shown in full so nothing lags.\n" .. code:sub(1, 1200) .. "\n..."
+L.m.settingBig = false
+lf.Text = "Clear"
+end
+function L.m.clearBig()
+if not L.m.big then return end
+L.m.big = nil
+L.m.settingBig = true
+codeBox.TextEditable = true
+codeBox.Text = ""
+L.m.settingBig = false
+lf.Text = "Load file"
+end
+codeBox:GetPropertyChangedSignal("Text"):Connect(function()
+if L.m.settingBig or L.m.big then return end
+if #codeBox.Text > 60000 then L.m.setBig(codeBox.Text) end
+end)
+lf.MouseButton1Click:Connect(function()
+if L.m.big then return L.m.clearBig() end
+local fn = codeBox.Text:match("^%s*(.-)%s*$")
+if fn == "" or #fn > 120 or fn:find("\n", 1, true) then
+return notify("Load file", "Type the file name (from your executor's workspace folder) in the script box, then press Load file", nil, 5)
+end
+if typeof(isfile) ~= "function" or typeof(readfile) ~= "function" or not isfile(fn) then
+return notify("Load file", "File not found in the workspace folder: " .. fn:sub(1, 40), nil, 4)
+end
+local ok, data = pcall(readfile, fn)
+if not ok or type(data) ~= "string" or data == "" then return notify("Load file", "Could not read that file", nil, 3) end
+if #data > 60000 then L.m.setBig(data) else codeBox.Text = data end
+end)
+end
 do
 local M2 = L.m
 M2.gameBox, M2.gameStroke = inputBox(modalCard, 262, 55, 220, 30, "Type a game, e.g. B  or a game ID", false, 42)
@@ -1411,6 +1676,7 @@ TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEn
 }, modalCard)
 round(b, 6)
 new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 6)}, b)
+L.popIn(b)
 sugBtns[i] = b
 b.MouseButton1Click:Connect(function()
 local it = sugData[i]
@@ -1422,7 +1688,7 @@ M2.gid = it.gid
 for _, x in ipairs(sugBtns) do x.Visible = false end
 end)
 end
-text(modalCard, {Position = UO(262, 172), Size = UO(220, 14), Font = Enum.Font.Nunito, Text = "Tap a match, or type your own. Universal needs no game.", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
+text(modalCard, {Position = UO(262, 172), Size = UO(220, 14), Font = Enum.Font.Nunito, Text = "Tap a match, or type your own.", TextSize = 10, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 42})
 local function setSug(items)
 for i, b in ipairs(sugBtns) do
 local it = items[i]
@@ -1473,8 +1739,11 @@ if setting then return end
 M2.gid = nil
 refreshSug()
 end)
+M2.preview = new("Frame", {Position = UO(454, 182), Size = UO(24, 24), BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, ZIndex = 43}, modalCard)
+round(M2.preview, 6)
 local chips = {}
 local function recolor()
+if M2.preview then L.kindBadgeInto(M2.preview, M2.kindStr and M2.kindStr() or "", 24) end
 for i, kd in ipairs(L.KINDS) do
 local on = M2.kinds[kd[1]]
 chips[i].BackgroundColor3 = on and kd[3] or L.P.ctrl
@@ -1494,6 +1763,7 @@ for _, kd in ipairs(L.KINDS) do if M2.kinds[kd[1]] then out = out .. kd[1] end e
 return out
 end
 function M2.reset()
+if M2.clearBig then M2.clearBig() end
 setting = true
 M2.gameBox.Text = ""
 setting = false
@@ -1588,38 +1858,248 @@ if cb then cb() end
 end)
 confirmNo.MouseButton1Click:Connect(function() confirm.Visible, confirmCb = false, nil end)
 end
+L.auto = {list = {}}
+do
+local d = readJson("DuaLibrary_AutoExec.json")
+if d and type(d.list) == "table" then
+for _, e in ipairs(d.list) do
+if type(e) == "table" and type(e.name) == "string" and type(e.code) == "string" then
+L.auto.list[#L.auto.list + 1] = {name = e.name:sub(1, 40), code = e.code, place = tonumber(e.place)}
+end
+end
+end
+end
+L.saveAuto = debounce(0.5, function() writeJson("DuaLibrary_AutoExec.json", {list = L.auto.list}) end)
+function L.autoIndex(e)
+local k = L.ckey(e.code)
+for i, x in ipairs(L.auto.list) do if x.name == e.name and L.ckey(x.code) == k then return i end end
+end
+function L.autoState(e)
+local i = L.autoIndex(e)
+if not i then return 0 end
+return L.auto.list[i].place and 2 or 1
+end
+function L.autoCycle(e)
+local i = L.autoIndex(e)
+if not i then table.insert(L.auto.list, {name = e.name:sub(1, 40), code = e.code})
+elseif not L.auto.list[i].place then L.auto.list[i].place = game.PlaceId
+else table.remove(L.auto.list, i) end
+L.saveAuto()
+if L.autoRender then L.autoRender() end
+end
+function L.autoRunAll(manual)
+local ran = 0
+for _, it in ipairs(L.auto.list) do
+if not it.place or it.place == game.PlaceId then
+ran = ran + 1
+task.spawn(runScript, it)
+task.wait(0.25)
+end
+end
+if manual and ran == 0 then notify("Auto-execute", "Nothing on the list for this game", nil, 3) end
+end
+L.favMeta = {}
+do
+local d = readJson("DuaLibrary_FavMeta.json")
+if d and type(d.m) == "table" then
+for k, v in pairs(d.m) do
+if type(k) == "string" and type(v) == "table" then
+local tags
+if type(v.tags) == "table" then
+tags = {}
+for _, t in ipairs(v.tags) do if type(t) == "string" and #tags < 6 then tags[#tags + 1] = t:sub(1, 16) end end
+end
+L.favMeta[k] = {folder = type(v.folder) == "string" and v.folder:sub(1, 24) or nil, tags = tags}
+end
+end
+end
+end
+L.saveFavMeta = debounce(0.5, function() writeJson("DuaLibrary_FavMeta.json", {m = L.favMeta}) end)
+function L.favMetaOf(e) return L.favMeta[L.noteKey(e)] end
+function L.favMetaText(e)
+local m = L.favMetaOf(e)
+return (m and m.folder) or "", (m and m.tags) and table.concat(m.tags, ", ") or ""
+end
+function L.favMetaSet(e, folder, tagsStr)
+folder = tostring(folder or ""):match("^%s*(.-)%s*$"):sub(1, 24)
+local tags = {}
+for t in tostring(tagsStr or ""):gmatch("[^,]+") do
+t = t:match("^%s*#?(.-)%s*$"):lower():sub(1, 16)
+if t ~= "" and #tags < 6 and not table.find(tags, t) then tags[#tags + 1] = t end
+end
+if folder == "" and #tags == 0 then L.favMeta[L.noteKey(e)] = nil
+else L.favMeta[L.noteKey(e)] = {folder = folder ~= "" and folder or nil, tags = #tags > 0 and tags or nil} end
+L.saveFavMeta()
+end
+function L.favOptions()
+local folders, tags, seenF, seenT = {}, {}, {}, {}
+for _, e in ipairs(L.favList()) do
+local m = L.favMetaOf(e)
+if m then
+if m.folder and not seenF[m.folder] then seenF[m.folder] = true; folders[#folders + 1] = m.folder end
+for _, t in ipairs(m.tags or {}) do if not seenT[t] then seenT[t] = true; tags[#tags + 1] = t end end
+end
+end
+table.sort(folders); table.sort(tags)
+local out = {""}
+for _, f in ipairs(folders) do out[#out + 1] = "F:" .. f end
+for _, t in ipairs(tags) do out[#out + 1] = "T:" .. t end
+return out
+end
+function L.favBtnText()
+local ui = L.pageUI and L.pageUI[L.FAVP]
+if not ui or not ui.favBtn then return end
+local v = S.favFolder or ""
+if v ~= "" and not table.find(L.favOptions(), v) then S.favFolder, v = "", "" end
+ui.favBtn.Text = v == "" and "All favorites" or (v:sub(1, 1) == "F" and ("Folder: " .. v:sub(3)) or ("Tag: #" .. v:sub(3)))
+end
 local openViewer, viewer, viewCard
 do
 viewer = overlay("Viewer", 45)
-viewCard = card(viewer, 420, 316, 46)
+viewCard = card(viewer, 580, 424, 46)
+local vIcon = new("Frame", {Position = UO(16, 14), Size = UO(40, 40), BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, ZIndex = 47}, viewCard)
+round(vIcon, 9)
 local vTitle = text(viewCard, {
-Position = UO(16, 10), Size = U2(1, -32, 0, 24), TextSize = 14, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 47,
+Position = UO(66, 12), Size = U2(1, -82, 0, 24), TextSize = 15, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 47,
 })
-fit(vTitle, 14, 9)
+fit(vTitle, 15, 9)
 local vInfo = text(viewCard, {
-Position = UO(16, 34), Size = U2(1, -32, 0, 16), Font = Enum.Font.Nunito, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
-TextTransparency = 0, Text = "", ZIndex = 47,
+Position = UO(66, 36), Size = U2(1, -82, 0, 16), Font = Enum.Font.Nunito, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+TextTransparency = 0.1, Text = "", TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 47,
 })
 local vDesc = text(viewCard, {
-Position = UO(16, 52), Size = U2(1, -32, 0, 44), Font = Enum.Font.Nunito, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
+Position = UO(16, 62), Size = U2(1, -32, 0, 30), Font = Enum.Font.Nunito, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left,
 TextYAlignment = Enum.TextYAlignment.Top, TextWrapped = true, TextTransparency = 0.2, Text = "", ZIndex = 47,
 })
 local vNote = text(viewCard, {
-Position = UO(16, 98), Size = U2(1, -32, 0, 22), Font = Enum.Font.Nunito, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
-TextTransparency = 0.1, Text = "", ZIndex = 47,
+Position = UO(16, 94), Size = U2(1, -32, 0, 16), Font = Enum.Font.Nunito, TextSize = 11, TextXAlignment = Enum.TextXAlignment.Left,
+TextTransparency = 0.1, Text = "", TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 47,
 })
-local vBox = inputBox(viewCard, 16, 118, 388, 144, "", true, 47)
-vBox.TextEditable = false
-local vCopy = button(viewCard, 16, 270, 126, 34, "Copy script", L.P.btn, 0, 47)
-local vNoteB = button(viewCard, 150, 270, 126, 34, "Note", L.P.ctrl, 0, 47)
-local vClose = button(viewCard, 284, 270, 120, 34, "Close", WHITE, 0.85, 47)
-local vPin = button(viewCard, 176, 270, 76, 34, "Note", Color3.fromRGB(150, 100, 30), 0, 47)
-local vMsg = button(viewCard, 260, 270, 76, 34, "Message", L.P.info, 0, 47)
-fit(vPin, 13, 8)
-fit(vMsg, 13, 8)
+-- folder and tags (only for favorited scripts)
+local orgRow = new("Frame", {Position = UO(16, 114), Size = UO(548, 28), BackgroundTransparency = 1, ZIndex = 47, Visible = false}, viewCard)
+local fBox = inputBox(orgRow, 0, 0, 160, 28, "Folder, e.g. Aimbots", false, 48)
+local tBox = inputBox(orgRow, 168, 0, 250, 28, "Tags, e.g. fly, pvp, fun", false, 48)
+local oSave = button(orgRow, 426, 0, 122, 28, "Save folder/tags", L.P.btn, 0, 48)
+oSave.TextSize = 11
+fit(oSave, 11, 7)
+-- code view: only the rows on screen exist, so scripts of any size stay smooth
+local LH, WRAP, POOL = 15, 64, 20
+local codeFrame = new("ScrollingFrame", {
+Position = UO(16, 148), Size = UO(548, 204), BackgroundColor3 = L.P.input, BorderSizePixel = 0, ScrollBarThickness = 5,
+ScrollBarImageColor3 = WHITE, CanvasSize = UDim2.new(), ZIndex = 47, ClipsDescendants = true,
+}, viewCard)
+round(codeFrame, 8)
+new("UIStroke", {Thickness = 1, Color = L.P.line, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, codeFrame)
+local rowsT, numsT, pool = {}, {}, {}
+local function mono(o)
+o:SetAttribute("FixedFont", true)
+o.Font = Enum.Font.RobotoMono
+end
+for i = 1, POOL do
+local g = new("TextLabel", {BackgroundTransparency = 1, Size = UO(38, LH), TextXAlignment = Enum.TextXAlignment.Right, TextSize = 11, TextColor3 = L.P.muted, Text = "", ZIndex = 48, Visible = false}, codeFrame)
+local l = new("TextLabel", {BackgroundTransparency = 1, Size = UO(496, LH), TextXAlignment = Enum.TextXAlignment.Left, TextSize = 12, TextColor3 = Color3.fromRGB(215, 215, 230), Text = "", TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 48, Visible = false}, codeFrame)
+mono(g); mono(l)
+pool[i] = {g, l}
+end
+local function paint()
+local first = math.max(1, math.floor(codeFrame.CanvasPosition.Y / LH) + 1)
+local n = #rowsT
+for i = 1, POOL do
+local idx = first + i - 1
+local g, l = pool[i][1], pool[i][2]
+if idx <= n then
+local y = (idx - 1) * LH + 4
+g.Position, l.Position = UO(2, y), UO(46, y)
+g.Text = numsT[idx] > 0 and tostring(numsT[idx]) or ""
+l.Text = rowsT[idx]
+g.Visible, l.Visible = true, true
+else
+g.Visible, l.Visible = false, false
+end
+end
+end
+codeFrame:GetPropertyChangedSignal("CanvasPosition"):Connect(paint)
+local vSize = text(viewCard, {
+Position = UO(16, 355), Size = UO(548, 14), Font = Enum.Font.Nunito, TextSize = 10, TextTransparency = 0.3,
+TextXAlignment = Enum.TextXAlignment.Left, Text = "", ZIndex = 47,
+})
+local loadTok = 0
+local function setCode(str)
+loadTok = loadTok + 1
+local my = loadTok
+rowsT, numsT = {}, {}
+codeFrame.CanvasPosition = Vector2.new(0, 0)
+codeFrame.CanvasSize = UO(0, 8)
+paint()
+str = tostring(str or "")
+vSize.Text = ""
+task.spawn(function()
+local pos, n, lineNo, budget = 1, #str, 0, 0
+while pos <= n do
+if my ~= loadTok then return end
+local e = str:find("\n", pos, true) or (n + 1)
+local line = str:sub(pos, e - 1):gsub("\r", ""):gsub("\t", "  ")
+lineNo = lineNo + 1
+if #line == 0 then
+rowsT[#rowsT + 1] = ""
+numsT[#rowsT] = lineNo
+else
+local p = 1
+while p <= #line do
+rowsT[#rowsT + 1] = line:sub(p, p + WRAP - 1)
+numsT[#rowsT] = (p == 1) and lineNo or 0
+p = p + WRAP
+end
+end
+pos = e + 1
+budget = budget + 1
+if budget >= 1500 then
+budget = 0
+codeFrame.CanvasSize = UO(0, #rowsT * LH + 8)
+paint()
+task.wait()
+end
+end
+if my ~= loadTok then return end
+codeFrame.CanvasSize = UO(0, #rowsT * LH + 8)
+paint()
+local kb = n / 1024
+vSize.Text = lineNo .. (lineNo == 1 and " line" or " lines") .. "   -   " .. (kb >= 100 and string.format("%.0f", kb) or string.format("%.1f", kb)) .. " KB"
+end)
+end
+-- buttons
+local vRun = button(viewCard, 16, 376, 100, 34, "Run", L.P.btn, 0, 47)
+local vCopy = button(viewCard, 16, 376, 100, 34, "Copy", L.P.ctrl, 0, 47)
+local vAuto = button(viewCard, 16, 376, 100, 34, "Auto: Off", L.P.ctrl, 0, 47)
+local vNoteB = button(viewCard, 16, 376, 100, 34, "Note", L.P.ctrl, 0, 47)
+local vPin = button(viewCard, 16, 376, 100, 34, "Admin note", Color3.fromRGB(150, 100, 30), 0, 47)
+local vMsg = button(viewCard, 16, 376, 100, 34, "Message", L.P.info, 0, 47)
+local vClose = button(viewCard, 16, 376, 100, 34, "Close", WHITE, 0.85, 47)
+for _, bt in ipairs({vRun, vCopy, vAuto, vNoteB, vPin, vMsg, vClose}) do fit(bt, 12, 8) end
+local function ico(bt, idx)
+if not L.atlasURL then return end
+new("UIPadding", {PaddingLeft = UDim.new(0, 22)}, bt)
+L.icon(bt, idx, 14, {Position = UO(7, 10)})
+end
+ico(vRun, 10); ico(vCopy, 20); ico(vAuto, 19)
 vPin.Visible, vMsg.Visible = false, false
-vInfo.TextTruncate = Enum.TextTruncate.AtEnd
 local current, shownCode
+local function layout()
+local list = {vRun, vCopy, vAuto, vNoteB}
+if vPin.Visible then list[#list + 1] = vPin end
+if vMsg.Visible then list[#list + 1] = vMsg end
+list[#list + 1] = vClose
+local gap = 6
+local w = (548 - gap * (#list - 1)) / #list
+for i, bt in ipairs(list) do
+bt.Position, bt.Size = UO(16 + (i - 1) * (w + gap), 376), UO(w, 34)
+end
+end
+local function autoText()
+local st = current and L.autoState(current) or 0
+vAuto.Text = st == 0 and "Auto: Off" or (st == 1 and "Auto: All games" or "Auto: This game")
+vAuto.BackgroundColor3 = st == 0 and L.P.ctrl or themeBtn
+end
 local function showNote()
 local parts = {}
 if current and current.an then parts[#parts + 1] = "" .. tostring(current.anb or "Admin") .. ": " .. current.an end
@@ -1632,38 +2112,65 @@ vNote.Text = txt:sub(1, 120)
 end
 openViewer = function(entry, shown)
 current, shownCode = entry, shown or entry.code
-vTitle.Text, vBox.Text = entry.name, shownCode
+vTitle.Text = entry.name
+if not L.kindBadgeInto(vIcon, entry.kinds, 40) then
+vIcon.BackgroundColor3 = L.P.ctrl
+local letter = "?"
+pcall(function() letter = utf8.char(utf8.codepoint(entry.name, 1)):upper() end)
+text(vIcon, {Size = U2(1, 0, 1, 0), Text = letter, TextSize = 18, ZIndex = 48})
+end
+setCode(shownCode)
 local who = type(entry.by) == "string" and entry.by ~= "" and entry.by or nil
 local info = {}
 if who then info[#info + 1] = "Shared by " .. who .. ((isAdmin and type(entry.uid) == "string" and entry.uid ~= "") and ("   (ID " .. entry.uid .. ")") or "") end
 if entry.game then info[#info + 1] = "" .. entry.game .. (entry.gid and (" (ID " .. entry.gid .. ")") or "") end
 if entry.kinds then info[#info + 1] = L.kindWords(entry.kinds) end
 local onShare = entry.comm or table.find(adminPages[ADD_PAGE], entry) ~= nil
-if onShare then info[#info + 1] = "" .. ((L.favCount or {})[entry.name] or 0) end
-vInfo.Text = table.concat(info, "  ·  ")
+if onShare then info[#info + 1] = "" .. ((L.favCount or {})[entry.name] or 0) .. " hearts" end
+if tonumber(entry.t) then info[#info + 1] = L.ago(tonumber(entry.t)) end
+vInfo.Text = table.concat(info, "  -  ")
 local adminHere = isAdmin and onShare
 vPin.Visible = adminHere
 vMsg.Visible = adminHere and (entry.comm or who) and true or false
-if vMsg.Visible then
-vCopy.Position, vCopy.Size, vNoteB.Position, vNoteB.Size, vClose.Position, vClose.Size = UO(16, 270), UO(78, 34), UO(102, 270), UO(66, 34), UO(344, 270), UO(60, 34)
-elseif adminHere then
-vCopy.Position, vCopy.Size, vNoteB.Position, vNoteB.Size, vPin.Position, vClose.Position, vClose.Size = UO(16, 270), UO(96, 34), UO(120, 270), UO(86, 34), UO(214, 270), UO(304, 270), UO(100, 34)
-vPin.Size = UO(82, 34)
-else
-vCopy.Position, vCopy.Size, vNoteB.Position, vNoteB.Size, vClose.Position, vClose.Size = UO(16, 270), UO(126, 34), UO(150, 270), UO(126, 34), UO(284, 270), UO(120, 34)
-end
-if vMsg.Visible then vPin.Position, vPin.Size = UO(176, 270), UO(76, 34) end
 vDesc.Text = (type(entry.desc) == "string" and entry.desc ~= "") and entry.desc or (who and "No description." or "")
 showNote()
+orgRow.Visible = L.isFav(entry) and true or false
+if orgRow.Visible then
+fBox.Text, tBox.Text = L.favMetaText(entry)
+end
+autoText()
+layout()
 viewer.Visible = true
 local slug = not shown and L.sbSlug(entry.code)
 if slug then
-vBox.Text = "Loading from scriptblox.com..."
+setCode("-- Loading from scriptblox.com...")
 L.sbFetch(slug, function(code)
-if current == entry then shownCode, vBox.Text = code, code end
+if current == entry then shownCode = code; setCode(code) end
 end)
 end
 end
+vRun.MouseButton1Click:Connect(function()
+if not current then return end
+local e = current
+if e.comm then
+askConfirm('Run "' .. e.name:sub(1, 40) .. '" shared by ' .. tostring(e.by):sub(1, 20) .. "? Scripts from players are not checked. Only run ones you trust.", function() runScript(e) end, "Run")
+else
+runScript(e)
+end
+end)
+vAuto.MouseButton1Click:Connect(function()
+if not current then return end
+L.autoCycle(current)
+autoText()
+end)
+oSave.MouseButton1Click:Connect(function()
+if not current then return end
+L.favMetaSet(current, fBox.Text, tBox.Text)
+fBox.Text, tBox.Text = L.favMetaText(current)
+if L.favBtnText then L.favBtnText() end
+if L.rerender then L.rerender() end
+notify("Saved", "Folder and tags updated", nil, 2)
+end)
 do
 local ed = overlay("NoteEditor", 50)
 local ec = card(ed, 340, 214, 51)
@@ -1753,12 +2260,13 @@ if typeof(setclipboard) == "function" then
 setclipboard(shownCode)
 notify("Copied", current.name)
 else
-notify("Can't copy", "Select the text in the box and copy it", nil, 3)
+notify("Can't copy", "Your executor has no clipboard function", nil, 3)
 end
 end)
 vClose.MouseButton1Click:Connect(function() viewer.Visible = false end)
 end
 local pageUI = {}
+L.pageUI = pageUI
 local function nop() end
 local function shownEntries(name)
 if name == L.ALL then
@@ -1851,6 +2359,39 @@ if hay:find(q, 1, true) then f[#f + 1] = e end
 end
 entries = f
 end
+if ui.favBtn then
+ui.favBtn.Visible = (name == L.FAVL)
+if name == L.FAVL then L.favBtnText() end
+end
+if name == L.FAVL and (S.favFolder or "") ~= "" then
+local mode, val, f = S.favFolder:sub(1, 1), S.favFolder:sub(3), {}
+for _, e in ipairs(entries) do
+local m = L.favMetaOf(e)
+if m and ((mode == "F" and m.folder == val) or (mode == "T" and m.tags and table.find(m.tags, val))) then f[#f + 1] = e end
+end
+entries = f
+end
+if L.uiOf[name] == L.DUA and S.duaSort ~= "def" then
+local mode, fc, seq = S.duaSort, L.favCount or {}, {}
+entries = table.move(entries, 1, #entries, 1, {})
+for i, e in ipairs(entries) do seq[e] = i end
+table.sort(entries, function(a, b)
+if mode == "az" or mode == "za" then
+local x, y = a.name:lower(), b.name:lower()
+if x ~= y then if mode == "az" then return x < y else return x > y end end
+elseif mode == "new" then
+local x, y = a.t or 0, b.t or 0
+if x ~= y then return x > y end
+elseif mode == "fav" then
+local x, y = fc[a.name] or 0, fc[b.name] or 0
+if x ~= y then return x > y end
+elseif mode == "kind" then
+local x, y = a.kinds or "", b.kinds or ""
+if x ~= y then return x < y end
+end
+return seq[a] < seq[b]
+end)
+end
 if name == ADD_PAGE then
 local seq, mode, fc = {}, S.shareSort, L.favCount or {}
 for i, e in ipairs(entries) do seq[e] = i end
@@ -1879,46 +2420,58 @@ end
 ui.hint.Visible = #entries == 0 and not (ui.plus and ui.plus.Visible)
 ui.hint.Text = q ~= "" and "No match." or (name == L.FAVL and "Nothing favorited yet. Tap the heart on a script.")
 or (name == L.FAVD and "DuaKNo hasn't favorited anything yet.") or "No scripts here yet."
-ui.count.Text = #entries .. (#entries == 1 and " script" or " scripts")
+ui.count.Text = #entries .. (#entries == 1 and " script" or " scripts") .. ((#entries > 0 and name ~= ADD_PAGE and L.uiOf[name] ~= L.DUA) and "   -   Run starts it, View shows the code, the heart saves it" or "")
 if name == ADD_PAGE and L.commStatusText then ui.count.Text = ui.count.Text .. "  ·  " .. L.commStatusText() end
+local animKey = name
+local animate = ui.lastKey ~= animKey
+ui.lastKey = animKey
 for i, entry in ipairs(entries) do
 local isShared = shared[entry] == true
-local tile = new("TextButton", {
-Name = "ScriptTile", LayoutOrder = i, BackgroundColor3 = TILE, BackgroundTransparency = TILE_T,
-BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 21,
-})
-round(tile, 10)
 local isDup = dupSet[entry] == true
-local tStroke = new("UIStroke", {Thickness = isDup and 1.6 or 1, Transparency = isDup and 0 or 0.2, Color = isDup and L.DUPRED or L.P.line, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, tile)
-local scale = new("UIScale", {}, tile)
-local nm = text(tile, {
-Position = UO(8, 25), Size = U2(1, -16, 0, 30), Text = entry.name, TextSize = 12,
-TextWrapped = true, TextXAlignment = Enum.TextXAlignment.Left, TextYAlignment = Enum.TextYAlignment.Top, ZIndex = 22,
+local canEdit = ((name == ADD_PAGE and (not entry.comm or isAdmin or entry.uid == tostring(LP.UserId))) or ((L.isSection[name] or name == L.ALL) and (L.owner() or (isAdmin and verName and type(entry.by) == "string" and entry.by:lower() == verName:lower())))) and true or false
+local reserve = canEdit and (entry.pending and 200 or 236) or 176
+local tile = new("TextButton", {
+Name = "ScriptTile", LayoutOrder = i, BackgroundTransparency = 1, BorderSizePixel = 0, Text = "",
+AutoButtonColor = false, ClipsDescendants = true, ZIndex = 21,
 })
-fit(nm, 12, 8)
+local body = new("Frame", {Position = UO(1, 1), Size = U2(1, -2, 1, -2), BackgroundColor3 = TILE, BackgroundTransparency = TILE_T, BorderSizePixel = 0, ZIndex = 21}, tile)
+round(body, 8)
+local tStroke = new("UIStroke", {Thickness = (isDup and 1.6 or 1) * (L.ss or 1), Transparency = isDup and 0 or 0.35, Color = isDup and L.DUPRED or L.P.line, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, body)
+L.strokes[tStroke] = isDup and 1.6 or 1
+local bar = new("Frame", {AnchorPoint = V2(0, 0.5), Position = U2(0, 0, 0.5, 0), Size = UO(3, 0), BackgroundColor3 = themeBtn, BorderSizePixel = 0, ZIndex = 24}, body)
+L.fills[bar] = "btn"
+local hue = 0
+for k = 1, #entry.name do hue = (hue * 31 + entry.name:byte(k)) % 360 end
+local badge = new("Frame", {AnchorPoint = V2(0, 0.5), Position = U2(0, 12, 0.5, 0), Size = UO(34, 34), BackgroundColor3 = Color3.fromHSV(hue / 360, 0.38, 0.52), BorderSizePixel = 0, ZIndex = 22}, body)
+round(badge, 8)
+if not L.kindBadgeInto(badge, entry.kinds, 34) then
+local letter = "?"
+pcall(function() letter = utf8.char(utf8.codepoint(entry.name, 1)):upper() end)
+text(badge, {Size = U2(1, 0, 1, 0), Text = letter, TextSize = 16, ZIndex = 23})
+end
+text(body, {
+Position = UO(56, 8), Size = U2(1, -(56 + reserve), 0, 18), Text = entry.name, TextSize = 13,
+TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 22,
+})
 local gtxt = entry.game or (entry.kinds and entry.kinds:find("U", 1, true) and "Universal") or ""
-text(tile, {
-Position = UO(8, 56), Size = U2(1, -16, 0, 12), Text = gtxt, TextSize = 10, Font = Enum.Font.Nunito,
+local byName = entry.comm and entry.by or (isShared and (entry.by or "admin")) or nil
+local sub = tostring(gtxt)
+if byName then sub = sub .. (sub ~= "" and "  ·  " or "") .. "by " .. tostring(byName) .. (entry.pending and "  (sending)" or "") end
+text(body, {
+Position = UO(56, 26), Size = U2(1, -(56 + reserve), 0, 13), Text = sub, TextSize = 11, Font = Enum.Font.Nunito,
 TextColor3 = L.P.muted, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 23,
 })
-local byName = entry.comm and entry.by or (isShared and (entry.by or "admin")) or nil
-if byName then
-text(tile, {
-Position = UO(8, 69), Size = U2(1, -16, 0, 12), Text = "by " .. byName .. (entry.pending and "  (sending)" or ""), TextSize = 10,
-Font = Enum.Font.Nunito, TextColor3 = L.P.muted, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 23,
-})
-end
 do
-local meta = new("Frame", {Position = UO(8, 84), Size = U2(1, -16, 0, 12), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 23}, tile)
-new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 3), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center}, meta)
+local meta = new("Frame", {Position = UO(56, 41), Size = U2(1, -(56 + reserve), 0, 13), BackgroundTransparency = 1, ClipsDescendants = true, ZIndex = 23}, body)
+new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder, VerticalAlignment = Enum.VerticalAlignment.Center}, meta)
 local mo = 0
 local function tag(txt, col, fill)
 mo = mo + 1
 local t = new("TextLabel", {
-LayoutOrder = mo, Size = UO(0, 12), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = col or L.P.ctrl, BackgroundTransparency = fill and 0.2 or 1,
-BorderSizePixel = 0, Text = txt, Font = Enum.Font.Nunito, TextSize = 9, TextColor3 = fill and WHITE or L.P.muted, ZIndex = 24,
+LayoutOrder = mo, Size = UO(0, 13), AutomaticSize = Enum.AutomaticSize.X, BackgroundColor3 = col or L.P.ctrl, BackgroundTransparency = fill and 0.2 or 1,
+BorderSizePixel = 0, Text = txt, Font = Enum.Font.Nunito, TextSize = 10, TextColor3 = fill and WHITE or L.P.muted, ZIndex = 24,
 }, meta)
-new("UIPadding", {PaddingLeft = UDim.new(0, fill and 4 or 0), PaddingRight = UDim.new(0, fill and 4 or 0)}, t)
+new("UIPadding", {PaddingLeft = UDim.new(0, fill and 5 or 0), PaddingRight = UDim.new(0, fill and 5 or 0)}, t)
 if fill then round(t, 4) end
 end
 if isDup then tag("Duplicate", L.DUPRED, true) end
@@ -1934,25 +2487,45 @@ if h then if h.ok then tag("Ran OK") else tag("Failed", RED, true) end end
 end
 if L.hasNote(entry) then tag("Note") end
 if entry.an then tag("Pinned") end
+do
+local fm = L.favMetaOf and L.isFav(entry) and L.favMetaOf(entry)
+if fm then
+if fm.folder then tag(fm.folder, L.P.info, true) end
+if fm.tags then for _, tg in ipairs(fm.tags) do tag("#" .. tg) end end
+end
+end
+end
+local runBtn = new("TextButton", {
+AnchorPoint = V2(1, 0.5), Position = U2(1, -10, 0.5, 0), Size = UO(54, 28),
+BackgroundColor3 = L.P.btn, BorderSizePixel = 0, AutoButtonColor = false,
+Font = Enum.Font.Nunito, TextSize = 12, Text = "Run", TextColor3 = WHITE, ZIndex = 23,
+}, body)
+round(runBtn, 7)
+if L.atlasURL then
+runBtn.TextXAlignment = Enum.TextXAlignment.Right
+new("UIPadding", {PaddingRight = UDim.new(0, 10)}, runBtn)
+new("ImageLabel", {Position = UO(8, 7), Size = UO(14, 14), BackgroundTransparency = 1, Image = L.atlasURL, ImageRectOffset = Vector2.new(128, 32), ImageRectSize = Vector2.new(32, 32), ZIndex = 24}, runBtn)
+end
+L.press(runBtn, 0.93)
+local viewBtn = new("TextButton", {
+AnchorPoint = V2(1, 0.5), Position = U2(1, -70, 0.5, 0), Size = UO(50, 28),
+BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, AutoButtonColor = false,
+Font = Enum.Font.Nunito, TextSize = 12, Text = "View", TextColor3 = WHITE, ZIndex = 23,
+}, body)
+round(viewBtn, 7)
+L.press(viewBtn, 0.93)
+if L.atlasURL then
+viewBtn.TextXAlignment = Enum.TextXAlignment.Right
+new("UIPadding", {PaddingRight = UDim.new(0, 8)}, viewBtn)
+L.icon(viewBtn, 15, 14, {Position = UO(7, 7)})
 end
 local heart = new("TextButton", {
-AnchorPoint = V2(1, 0), Position = U2(1, -5, 0, 5), Size = UO(20, 18), BackgroundTransparency = 1,
+AnchorPoint = V2(1, 0.5), Position = U2(1, -126, 0.5, 0), Size = UO(26, 26), BackgroundTransparency = 1,
 BorderSizePixel = 0, AutoButtonColor = false, Text = "\u{2665}", TextColor3 = L.isFav(entry) and L.HEART_ON or L.HEART_OFF, TextSize = 18, ZIndex = 24,
-}, tile)
+}, body)
 L.paintHeart(heart, L.isFav(entry))
+L.press(heart, 0.85)
 heart.MouseButton1Click:Connect(function() L.toggleFav(entry) end)
-local runBtn = new("TextButton", {
-AnchorPoint = V2(0, 1), Position = U2(0, 8, 1, -8), Size = U2(0.5, -11, 0, 22),
-BackgroundColor3 = L.P.btn, BorderSizePixel = 0, AutoButtonColor = false,
-Font = Enum.Font.Nunito, TextSize = 11, Text = "Run", TextColor3 = WHITE, ZIndex = 23,
-}, tile)
-round(runBtn, 8)
-local viewBtn = new("TextButton", {
-AnchorPoint = V2(1, 1), Position = U2(1, -8, 1, -8), Size = U2(0.5, -11, 0, 22),
-BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, AutoButtonColor = false,
-Font = Enum.Font.Nunito, TextSize = 11, Text = "View", TextColor3 = WHITE, ZIndex = 23,
-}, tile)
-round(viewBtn, 8)
 local function go()
 if entry.comm then
 askConfirm('Run "' .. entry.name:sub(1, 40) .. '" shared by ' .. tostring(entry.by):sub(1, 20) .. "? Scripts from players are not checked. Only run ones you trust.", function() runScript(entry) end, "Run")
@@ -1962,46 +2535,64 @@ end
 end
 runBtn.MouseButton1Click:Connect(go)
 viewBtn.MouseButton1Click:Connect(function() openViewer(entry) end)
-local restScale = UIS.MouseEnabled and L.hv or 1
 tile.MouseEnter:Connect(function()
-tween(scale, FAST, {Scale = L.hv})
-tween(tile, FAST, {BackgroundColor3 = TILE_HOT})
+tween(body, FAST, {BackgroundColor3 = TILE_HOT})
 tween(tStroke, FAST, {Transparency = isDup and 0 or 0.1, Color = isDup and L.DUPRED or themeStroke})
+tween(bar, FAST, {Size = UO(3, 30)})
 end)
 tile.MouseLeave:Connect(function()
-tween(scale, FAST, {Scale = 1})
-tween(tile, FAST, {BackgroundColor3 = TILE})
-tween(tStroke, FAST, {Transparency = isDup and 0 or 0.2, Color = isDup and L.DUPRED or L.P.line})
+tween(body, FAST, {BackgroundColor3 = TILE})
+tween(tStroke, FAST, {Transparency = isDup and 0 or 0.35, Color = isDup and L.DUPRED or L.P.line})
+tween(bar, FAST, {Size = UO(3, 0)})
 end)
-tile.MouseButton1Down:Connect(function() tween(scale, TweenInfo.new(0.08), {Scale = 0.95}) end)
-tile.MouseButton1Up:Connect(function() tween(scale, FAST, {Scale = restScale}) end)
 tile.MouseButton1Click:Connect(function()
 go()
-tween(tile, TweenInfo.new(0.1), {BackgroundColor3 = L.P.ctrl})
+tween(body, TweenInfo.new(0.1), {BackgroundColor3 = L.P.ctrl})
 task.delay(0.14, function()
-if tile.Parent then tween(tile, FAST, {BackgroundColor3 = TILE}) end
+if body.Parent then tween(body, FAST, {BackgroundColor3 = TILE}) end
 end)
 end)
-if (name == ADD_PAGE and (not entry.comm or isAdmin or entry.uid == tostring(LP.UserId))) or (L.isSection[name] and (L.owner() or (isAdmin and verName and type(entry.by) == "string" and entry.by:lower() == verName:lower()))) then
+if canEdit then
 if not entry.pending then
 local edB = new("TextButton", {
-AnchorPoint = V2(1, 0), Position = U2(1, -46, 0, 6), Size = UO(26, 16),
+AnchorPoint = V2(1, 0.5), Position = U2(1, -156, 0.5, 0), Size = UO(32, 22),
 BackgroundColor3 = L.P.ctrl, BackgroundTransparency = 0, BorderSizePixel = 0,
-AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 9, Text = "Edit",
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 11, Text = "Edit",
 TextColor3 = WHITE, ZIndex = 25,
-}, tile)
+}, body)
 round(edB, 5)
-edB.MouseButton1Click:Connect(function() L.startEdit(entry, name, isShared) end)
+edB.MouseButton1Click:Connect(function() L.startEdit(entry, (name == L.ALL and L.secOf(entry)) or name, isShared) end)
 end
 local del = new("TextButton", {
-AnchorPoint = V2(1, 0), Position = U2(1, -28, 0, 6), Size = UO(16, 16),
+AnchorPoint = V2(1, 0.5), Position = U2(1, entry.pending and -156 or -194, 0.5, 0), Size = UO(22, 22),
 BackgroundColor3 = RED, BackgroundTransparency = 0.3, BorderSizePixel = 0,
-AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 10, Text = "X",
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 11, Text = "X",
 TextColor3 = WHITE, ZIndex = 25,
-}, tile)
+}, body)
 round(del, 5)
 del.MouseButton1Click:Connect(function()
 askConfirm('Are you sure you want to remove "' .. entry.name .. '" from the list?', function()
+if name == L.ALL then
+if isAdmin and not adminOk() then return end
+local k, any = L.ckey(entry.code), false
+for _, sec in ipairs(SECTIONS) do
+local list = entriesOf[sec.name]
+for i = #list, 1, -1 do
+local x = list[i]
+if x == entry or (x.name == entry.name and L.ckey(x.code) == k) then
+if L.boardMarkDel then L.boardMarkDel(sec.name, x) end
+table.remove(list, i)
+any = true
+end
+end
+end
+if any then
+syncAdmin()
+for _, sec in ipairs(SECTIONS) do renderPage(sec.name) end
+renderPage(L.ALL)
+end
+return
+end
 if entry.comm then
 if entry.uid ~= tostring(LP.UserId) and isAdmin and not adminOk() then return end
 return L.commDelete(entry)
@@ -2018,6 +2609,10 @@ renderPage(name)
 end
 end)
 end)
+end
+if animate and i <= 12 then
+body.Position = UO(-36, 1)
+TweenService:Create(body, TweenInfo.new(0.34, Enum.EasingStyle.Quint, Enum.EasingDirection.Out, 0, false, (i - 1) * 0.03), {Position = UO(1, 1)}):Play()
 end
 tile.Parent = ui.grid
 end
@@ -2112,6 +2707,16 @@ modal.Visible = true
 end
 local function codeKey(c) return (tostring(c or ""):gsub("%s+", "")) end
 local function mineEntry(x) return L.owner() or (verName and type(x.by) == "string" and x.by:lower() == verName:lower()) or false end
+function L.secOf(entry)
+for _, sec in ipairs(SECTIONS) do
+for _, x in ipairs(entriesOf[sec.name]) do if x == entry then return sec.name end end
+end
+local k = codeKey(entry.code)
+for _, sec in ipairs(SECTIONS) do
+for _, x in ipairs(entriesOf[sec.name]) do if codeKey(x.code) == k then return sec.name end end
+end
+return SECTIONS[1].name
+end
 -- save to the picked sections. Same script code (or loadstring) already there = only the name is replaced, in every section it is in
 function L.saveSections(entry, e0)
 local secs, key = L.m.secs, codeKey(entry.code)
@@ -2160,7 +2765,10 @@ if not dup then table.insert(fl, {name = entry.name, code = entry.code, by = ent
 end
 syncAdmin()
 for name in pairs(changed) do renderPage(name) end
+renderPage(L.ALL)
 renderPage(L.FAVD)
+if L.refreshUpdates then L.refreshUpdates() end
+if L.updDot then L.updDot() end
 local msg = (added > 0 and ("Added to " .. added .. (added == 1 and " section" or " sections")) or "")
 if renamed > 0 then msg = msg .. (msg ~= "" and ", " or "") .. "renamed " .. renamed end
 if #dups > 0 and not e0 then
@@ -2177,7 +2785,9 @@ modalPage = name
 L.editing = {entry = entry, page = name, shared = isShared}
 modalAdd.Text = "Save changes"
 modalTitle.Text = "Edit script"
-nameBox.Text, codeBox.Text, descBox.Text = entry.name or "", entry.code or "", entry.desc or ""
+nameBox.Text, descBox.Text = entry.name or "", entry.desc or ""
+L.m.clearBig()
+if #(entry.code or "") > 60000 then L.m.setBig(entry.code) else codeBox.Text = entry.code or "" end
 L.m.load(entry)
 local picked
 if L.isSection[name] then
@@ -2217,10 +2827,9 @@ end
 modalCancel.MouseButton1Click:Connect(function() modal.Visible = false end)
 modalAdd.MouseButton1Click:Connect(function()
 local nm = nameBox.Text:match("^%s*(.-)%s*$"):sub(1, 40)
-local code = codeBox.Text
+local code = L.m.big or codeBox.Text
 if nm == "" then return flashRed(nameStroke) end
 if code:match("^%s*$") then return flashRed(codeStroke) end
-if #code > 30000 then notify("Too long", "Scripts can be up to 30,000 characters (yours is " .. #code .. ")", nil, 4) return flashRed(codeStroke) end
 local desc = descBox.Text:gsub("%c", " "):match("^%s*(.-)%s*$"):sub(1, 300)
 local chatL = L.chat
 if chatL and chatL.isHate and (chatL.isHate(desc) or chatL.isHate(nm)) then
@@ -2323,7 +2932,7 @@ end)
 for i, item in ipairs(ITEMS) do
 local name = item.name
 local row = new("TextButton", {
-Name = name, LayoutOrder = i, Size = U2(1, -10, 0, 28), BackgroundTransparency = 1,
+Name = name, LayoutOrder = i, Size = U2(1, -10, 0, 32), BackgroundTransparency = 1,
 BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 9,
 })
 round(row, 6)
@@ -2334,20 +2943,28 @@ AnchorPoint = V2(0, 0.5), Position = U2(0, 1, 0.5, 0), Size = UO(3, 16), Backgro
 BackgroundTransparency = 1, BorderSizePixel = 0, ZIndex = 11,
 }, row)
 round(bars[name], 2)
-bars[name].Visible = false
 if item.image then
 new("ImageLabel", {
-AnchorPoint = V2(0.5, 0.5), Position = U2(0, 14, 0.5, 0), Size = UO(16, 16),
+AnchorPoint = V2(0.5, 0.5), Position = U2(0, 17, 0.5, 0), Size = UO(16, 16),
 BackgroundTransparency = 1, Image = item.image, ZIndex = 10,
 }, row)
 else
-text(row, {
-AnchorPoint = V2(0.5, 0.5), Position = U2(0, 14, 0.5, 0), Size = UO(24, 24),
+local letter = text(row, {
+AnchorPoint = V2(0.5, 0.5), Position = U2(0, 17, 0.5, 0), Size = UO(24, 24),
 Text = (L.LET[name] or name:sub(1, 1)), TextSize = 15, TextColor3 = WHITE, ZIndex = 10,
 })
+local idx = L.NAVICON[name]
+if idx and L.atlasURL then
+letter.Visible = false
+L.navIcons[name] = new("ImageLabel", {
+AnchorPoint = V2(0.5, 0.5), Position = U2(0, 17, 0.5, 0), Size = UO(20, 20), BackgroundTransparency = 1,
+Image = L.atlasURL, ImageRectOffset = Vector2.new((idx % 6) * 32, math.floor(idx / 6) * 32), ImageRectSize = Vector2.new(32, 32),
+ImageTransparency = 0.35, ZIndex = 10,
+}, row)
+end
 end
 local lbl = text(row, {
-Position = UO(32, 0), Size = U2(1, -34, 1, 0), Text = (name == ADD_PAGE) and "Share & find" or name, TextSize = 12,
+Position = UO(38, 0), Size = U2(1, -40, 1, 0), Text = (name == ADD_PAGE) and "Share & find" or name, TextSize = 12,
 TextXAlignment = Enum.TextXAlignment.Left, TextTransparency = 1, ZIndex = 10,
 })
 fit(lbl, 12, 8)
@@ -2355,7 +2972,7 @@ labels[#labels + 1] = lbl
 row.MouseMoved:Connect(bump)
 row.MouseEnter:Connect(function()
 bump()
-if selected ~= name then tween(row, TweenInfo.new(0.12), {BackgroundTransparency = 0.82}) end
+if selected ~= name then tween(row, TweenInfo.new(0.12), {BackgroundTransparency = 0.9}) end
 end)
 row.MouseLeave:Connect(function()
 if selected ~= name then tween(row, TweenInfo.new(0.12), {BackgroundTransparency = 1}) end
@@ -2375,7 +2992,7 @@ TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 21,
 fit(pt, 15, 9)
 local count = text(page, {
 Position = UO(12, 25), Size = U2(1, -24, 0, 14), Font = Enum.Font.Nunito, Text = "",
-TextSize = 10, TextTransparency = 0.4, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 21,
+TextSize = 10, TextTransparency = 0.4, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 21,
 })
 new("Frame", {
 Position = UO(10, 42), Size = U2(1, -20, 0, 1), BackgroundColor3 = L.P.line,
@@ -2385,6 +3002,7 @@ if item.custom then count.Text = item.sub or "" end
 if not item.custom then
 if name == ADD_PAGE then
 pt.Size = U2(1, -190, 0, 22)
+count.Size = U2(1, -214, 0, 14)
 local lab = text(page, {
 AnchorPoint = V2(1, 0), Position = U2(1, -58, 0, 4), Size = UO(122, 30), Text = "Share globally",
 TextSize = 12, TextXAlignment = Enum.TextXAlignment.Right, ZIndex = 21,
@@ -2400,10 +3018,11 @@ ScrollBarThickness = 3, ScrollBarImageColor3 = WHITE,
 CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y, ZIndex = 20,
 }, page)
 L.grids[#L.grids + 1] = new("UIGridLayout", {
-CellSize = U2(0.25, -11, 0, 128), CellPadding = UO(8, 8),
+CellSize = U2(1, -20, 0, 60), CellPadding = UO(8, 6),
 SortOrder = Enum.SortOrder.LayoutOrder, HorizontalAlignment = Enum.HorizontalAlignment.Left,
 }, grid)
-L.cellH[L.grids[#L.grids]] = 128
+L.cellH[L.grids[#L.grids]] = 60
+L.listGrids[L.grids[#L.grids]] = true
 new("UIPadding", {PaddingTop = UDim.new(0, 8), PaddingBottom = UDim.new(0, 8), PaddingLeft = UDim.new(0, 8)}, grid)
 local plusTile
 if name == ADD_PAGE or (name == L.DUA and isAdmin) then
@@ -2414,11 +3033,7 @@ BorderSizePixel = 0, Text = "", AutoButtonColor = false, ZIndex = 21,
 round(plus, 12)
 local pStroke = outline(plus, 1, 0.3)
 local pScale = new("UIScale", {}, plus)
-text(plus, {Position = U2(0, 0, 0.5, -36), Size = U2(1, 0, 0, 44), Text = "+", TextSize = 34, TextColor3 = themeStroke, ZIndex = 22})
-text(plus, {
-Position = U2(0, 0, 0.5, 10), Size = U2(1, 0, 0, 16), Font = Enum.Font.Nunito, Text = "New script",
-TextSize = 11, TextColor3 = L.P.muted, ZIndex = 22,
-})
+text(plus, {Size = U2(1, 0, 1, 0), Text = "+   New script", TextSize = 14, TextColor3 = themeStroke, ZIndex = 22})
 plus.BackgroundColor3, plus.BackgroundTransparency = L.cur().plus, L.cur().plusT
 L.plus[#L.plus + 1] = plus
 plusTile = plus
@@ -2436,14 +3051,44 @@ Text = "No scripts here yet.", TextTransparency = 0.4, Visible = false, ZIndex =
 })
 hint.Position, hint.Size = UO(0, top), U2(1, 0, 1, -top)
 pageUI[name] = {grid = grid, hint = hint, count = count, current = name, plus = plusTile}
+if name == L.FAVP then
+local fb = button(page, 0, 0, 170, 24, "All favorites", L.P.ctrl, 0, 22)
+fb.AnchorPoint, fb.Position, fb.TextSize = V2(1, 0), U2(1, -10, 0, 3), 11
+fit(fb, 11, 7)
+pt.Size = U2(0.4, 0, 0, 22)
+pageUI[name].favBtn = fb
+fb.MouseButton1Click:Connect(function()
+local opts = L.favOptions()
+local at = table.find(opts, S.favFolder or "") or 1
+S.favFolder = opts[at % #opts + 1]
+scheduleSave()
+L.favBtnText()
+renderPage(pageUI[name].current)
+end)
+end
 if name == L.DUA or name == ADD_PAGE then
 local box = inputBox(page, 0, 0, 10, 26, "Search...", false, 22)
 if name == L.DUA then
-box.AnchorPoint, box.Position, box.Size = V2(1, 0), U2(1, -84, 0, 7), U2(0.34, 0, 0, 26)
-new("UISizeConstraint", {MinSize = Vector2.new(60, 26), MaxSize = Vector2.new(150, 26)}, box)
-pt.Size = U2(0.4, 0, 0, 22)
-local rq = button(page, 0, 0, 68, 26, "Request", L.P.btn, 0, 22)
-rq.AnchorPoint, rq.Position, rq.TextSize = V2(1, 0), U2(1, -10, 0, 7), 12
+box.AnchorPoint, box.Position, box.Size = V2(1, 0), U2(1, -184, 0, 3), U2(0.34, 0, 0, 24)
+new("UISizeConstraint", {MinSize = Vector2.new(60, 24), MaxSize = Vector2.new(180, 24)}, box)
+pt.Size = U2(0.3, 0, 0, 22)
+count.Position, count.Size = UO(12, 27), U2(1, -24, 0, 13)
+local rq = button(page, 0, 0, 68, 24, "Request", L.P.btn, 0, 22)
+rq.AnchorPoint, rq.Position, rq.TextSize = V2(1, 0), U2(1, -10, 0, 3), 12
+local dsort = button(page, 0, 0, 92, 24, "", L.P.ctrl, 0, 22)
+dsort.AnchorPoint, dsort.Position, dsort.TextSize = V2(1, 0), U2(1, -84, 0, 3), 11
+fit(dsort, 11, 7)
+local DS_NAMES = {def = "Sort: Default", az = "Sort: A-Z", za = "Sort: Z-A", new = "Sort: Newest", fav = "Sort: Most loved", kind = "Sort: Type"}
+local DS_ORDER = {"def", "az", "za", "new", "fav", "kind"}
+if not DS_NAMES[S.duaSort] then S.duaSort = "def" end
+dsort.Text = DS_NAMES[S.duaSort]
+dsort.MouseButton1Click:Connect(function()
+local at = table.find(DS_ORDER, S.duaSort) or 1
+S.duaSort = DS_ORDER[at % #DS_ORDER + 1]
+dsort.Text = DS_NAMES[S.duaSort]
+scheduleSave()
+renderPage(pageUI[name].current)
+end)
 fit(rq, 12, 8)
 rq.MouseButton1Click:Connect(function() L.openCompose() end)
 else
@@ -2484,13 +3129,24 @@ pageUI[name].current = tabs[1].name
 local row = new("Frame", {Position = UO(10, 46), Size = U2(1, -20, 0, 24), BackgroundTransparency = 1, ZIndex = 21}, page)
 new("UIListLayout", {FillDirection = Enum.FillDirection.Horizontal, Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, row)
 local tbtn = {}
+local ind = new("Frame", {AnchorPoint = V2(0, 1), Position = UO(0, 70), Size = UO(0, 2), BackgroundColor3 = WHITE, BorderSizePixel = 0, ZIndex = 24}, page)
+L.fills[ind] = "hi"
 local function recolor()
+local first = ind.Size.X.Offset == 0
 for k, b in ipairs(tbtn) do
 local on = tabs[k].name == pageUI[name].current
-b.BackgroundColor3 = on and themeBtn or L.P.ctrl
-b.BackgroundTransparency = 0
+tween(b, FAST, {BackgroundColor3 = themeBtn, BackgroundTransparency = on and 0.8 or 1, TextColor3 = on and WHITE or L.P.muted})
+if on then
+task.defer(function()
+if not b.Parent or b.AbsoluteSize.X <= 0 then return end
+local goal = {Position = UO(b.AbsolutePosition.X - page.AbsolutePosition.X, 70), Size = UO(b.AbsoluteSize.X, 2)}
+if first then ind.Position, ind.Size = goal.Position, goal.Size
+else tween(ind, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), goal) end
+end)
 end
 end
+end
+row:GetPropertyChangedSignal("AbsoluteSize"):Connect(function() recolor() end)
 for k, sec in ipairs(tabs) do
 local b = new("TextButton", {
 LayoutOrder = k, Size = U2(1 / #tabs, -4 * (#tabs - 1) / #tabs, 1, 0), BorderSizePixel = 0, AutoButtonColor = false,
@@ -2568,28 +3224,81 @@ sidebar.InputBegan:Connect(function(i)
 if i.UserInputType == Enum.UserInputType.Touch or i.UserInputType == Enum.UserInputType.MouseButton1 then bump() end
 end)
 list:GetPropertyChangedSignal("CanvasPosition"):Connect(bump)
-local function themeColors(h, s)
-local function c(sat, val) return Color3.fromHSV(h, math.clamp(sat * s, 0, 1), val) end
+local function themeColors(h, s, v)
+v = v or 1
+local function c(sat, val, vs) return Color3.fromHSV(h, math.clamp(sat * s, 0, 1), math.clamp(vs and val * v or val, 0, 1)) end
 return {
 winBase = c(0.55, 0.10),
 bg = ColorSequence.new({ColorSequenceKeypoint.new(0, c(0.60, 0.13)), ColorSequenceKeypoint.new(1, c(0.60, 0.08))}),
-stroke = c(0.55, 1),
-barBase = c(0.55, 0.075),
-bar = ColorSequence.new({ColorSequenceKeypoint.new(0, c(0.55, 0.10)), ColorSequenceKeypoint.new(1, c(0.55, 0.075))}),
-barMask = c(0.55, 0.075),
+stroke = c(0.42, 0.95, true),
+barBase = c(0.45, 0.07),
+bar = ColorSequence.new({ColorSequenceKeypoint.new(0, c(0.45, 0.085)), ColorSequenceKeypoint.new(1, c(0.45, 0.07))}),
+barMask = c(0.45, 0.07),
 accent = ColorSequence.new({
 ColorSequenceKeypoint.new(0, c(0.65, 0.90)), ColorSequenceKeypoint.new(0.5, c(0.45, 1)),
 ColorSequenceKeypoint.new(1, c(0.65, 0.90)),
 }),
-sb = c(0.55, 0.075),
-card = c(0.50, 0.14),
-hi = c(0.50, 1),
-btn = c(0.62, 0.74),
+sb = c(0.45, 0.07),
+card = c(0.40, 0.13),
+hi = c(0.45, 1, true),
+btn = c(0.55, 0.72, true),
 pal = {WHITE, c(0.12, 1), c(0.29, 1), c(0.06, 1)},
 }
 end
+L.THEMES = {
+{name = "Violet", h = 0.75, s = 1}, {name = "Blue", h = 0.60, s = 1}, {name = "Cyan", h = 0.50, s = 1},
+{name = "Green", h = 0.38, s = 1}, {name = "Gold", h = 0.12, s = 0.9}, {name = "Orange", h = 0.07, s = 1},
+{name = "Red", h = 0.0, s = 1}, {name = "Pink", h = 0.90, s = 1},
+{name = "Black", h = 0, s = 0, v = 0.38, edge = {Color3.fromRGB(0, 0, 0), Color3.fromRGB(48, 48, 56), Color3.fromRGB(170, 170, 185), Color3.fromRGB(12, 12, 16)}},
+{name = "White", h = 0, s = 0, v = 0.7, edge = {Color3.fromRGB(255, 255, 255), Color3.fromRGB(150, 150, 160), Color3.fromRGB(235, 240, 255), Color3.fromRGB(110, 110, 120)}},
+{name = "Silver", h = 0, s = 0, v = 0.55, edge = {Color3.fromRGB(70, 72, 80), Color3.fromRGB(200, 204, 214), Color3.fromRGB(120, 124, 134), Color3.fromRGB(235, 238, 245)}},
+{name = "Rainbow", h = 0.75, s = 1, edge = {Color3.fromHSV(0, 0.8, 1), Color3.fromHSV(0.17, 0.8, 1), Color3.fromHSV(0.33, 0.8, 1), Color3.fromHSV(0.5, 0.8, 1), Color3.fromHSV(0.67, 0.8, 1), Color3.fromHSV(0.83, 0.8, 1)}},
+}
+function L.edgeFor(p, h, s, v)
+if p and p.edge then return p.edge end
+h, s, v = h or p.h, s or p.s, v or p.v or 1
+local function hc(hh, sat, val) return Color3.fromHSV(hh % 1, math.clamp(sat * s, 0, 1), math.clamp(val * v, 0, 1)) end
+return {hc(h, 0.95, 0.35), hc(h, 0.85, 1), hc(h + 0.08, 0.55, 1), hc(h - 0.07, 0.9, 0.75)}
+end
+function L.edgeSeq(cols)
+local n, kp = #cols, {}
+for i = 0, n do kp[#kp + 1] = ColorSequenceKeypoint.new(i / n, cols[(i % n) + 1]) end
+return ColorSequence.new(kp)
+end
+function L.applyEdge()
+local cur
+for _, t in ipairs(L.THEMES) do if t.name == S.themeName then cur = t end end
+local cols = (cur and cur.edge) or L.edgeFor({}, S.hue, S.sat, S.val)
+local seq = L.edgeSeq(cols)
+L.edgeGrad.Color = seq
+L.winStroke.Thickness = S.edgeW
+local line = math.clamp(math.floor(S.edgeW / 2 + 0.5), 2, 4)
+accent.Size = U2(1, 0, 0, line)
+accentGrad.Color = seq
+sbEdge.Size = U2(0, math.max(1, math.floor(S.edgeW / 2)), 1, 0)
+sbEdge.BackgroundTransparency = 0.25
+sbDivider.Size = U2(1, 0, 0, math.max(1, math.floor(S.edgeW / 2)))
+sbDivider.BackgroundTransparency = 0.25
+if L.edgeTw then L.edgeTw:Cancel(); L.edgeTw = nil end
+if L.accTw then L.accTw:Cancel(); L.accTw = nil end
+L.edgeGrad.Rotation = 45
+accentGrad.Offset = Vector2.new(0, 0)
+if S.edgeAnim then
+L.edgeTw = TweenService:Create(L.edgeGrad, TweenInfo.new(S.edgeSpeed, Enum.EasingStyle.Linear, Enum.EasingDirection.Out, -1), {Rotation = 405})
+accentGrad.Offset = Vector2.new(-1, 0)
+L.accTw = TweenService:Create(accentGrad, TweenInfo.new(math.max(2, S.edgeSpeed / 2.5), Enum.EasingStyle.Sine, Enum.EasingDirection.InOut, -1, true), {Offset = Vector2.new(1, 0)})
+if sg.Enabled then L.edgeTw:Play(); L.accTw:Play() end
+end
+if not L.edgeConn then
+L.edgeConn = sg:GetPropertyChangedSignal("Enabled"):Connect(function()
+for _, t in ipairs({L.edgeTw, L.accTw}) do
+if t then if sg.Enabled then t:Play() else t:Pause() end end
+end
+end)
+end
+end
 local function applyTheme()
-local th = themeColors(S.hue, S.sat)
+local th = themeColors(S.hue, S.sat, S.val)
 accentColor, themeStroke, themeBtn = th.hi, th.stroke, th.btn
 win.BackgroundColor3, bgGrad.Color = th.winBase, th.bg
 bar.BackgroundColor3, barGrad.Color, mask.BackgroundColor3 = th.barBase, th.bar, th.barMask
@@ -2601,6 +3310,7 @@ modalCard.BackgroundColor3, confirmCard.BackgroundColor3 = th.card, th.card
 viewCard.BackgroundColor3 = th.card
 for _, c in ipairs(L.cards) do c.BackgroundColor3 = th.card end
 for _, row in pairs(rows) do row.BackgroundColor3 = th.btn end
+for _, b in pairs(bars) do b.BackgroundColor3 = th.hi end
 for st in pairs(themed) do
 if st.Parent then st.Color = th.stroke else themed[st] = nil end
 end
@@ -2612,17 +3322,21 @@ local col = L.cur().pcol and L.cur().pcol[p.ci] or th.pal[p.ci]
 if p.kind == "triangle" then p.o.TextColor3 = col else p.o.BackgroundColor3 = col end
 end
 for _, r in ipairs(refreshers) do r() end
+L.applyEdge()
 end
 local function applyWindow() win.BackgroundTransparency = minimized and 1 or math.min(0.92, S.winTrans + (L.cur().wt or 0)) end
 L.BGS = {
 "https://i.postimg.cc/FRbJj5dM/file-00000000c52c81f7b9ac5699e070f818.png",
 "https://i.postimg.cc/KjSXnt2D/a2c1d8b9a752a25fb26be505dcdb954b.jpg",
 "https://i.postimg.cc/sXDfD3RG/0d1984a0e2894f4eb79332c20b1f8e45.jpg",
+"https://i.postimg.cc/NFrnWMRk/1debb79bdaf1ef138dc75fd2bd0f8df6.jpg",
+"https://i.postimg.cc/63PSjR4W/c0b5223f5f091529a7b74174f22e6d01.jpg",
+"https://i.postimg.cc/5jWFm7xn/ea060a807fa9edf2d37eb474cac8baae.jpg",
 }
 -- background image: translucent so text stays readable; bars and sidebar become see-through over it
 function L.applyBg()
 local st = L.cur()
-local img = S.bgOn and (st.img or S.bgUrl ~= "") and true or false
+local img = S.bgOn and true or false
 local on = img and not minimized
 L.bgImg.Visible, L.bgDim.Visible = on, on
 L.bgImg.ImageTransparency = 1 - S.bgVis
@@ -2717,7 +3431,7 @@ end
 for _, p in ipairs(L.plus) do p.BackgroundColor3, p.BackgroundTransparency = st.plus, st.plusT end
 L.pm, L.hv = st.pm or 1, st.hv or 1.04
 applyWindow()
-accent.Size = U2(1, 0, 0, st.ab or 3)
+accent.Size = U2(1, 0, 0, math.clamp(math.floor(S.edgeW / 2 + 0.5), 2, 4))
 if st.tf then
 title:SetAttribute("FixedFont", true)
 pcall(function() title.Font = Enum.Font[st.tf] end)
@@ -2725,7 +3439,7 @@ else
 title:SetAttribute("FixedFont", nil)
 L.face(title)
 end
-local th = themeColors(S.hue, S.sat)
+local th = themeColors(S.hue, S.sat, S.val)
 for _, p in ipairs(parts) do
 local col = st.pcol and st.pcol[p.ci] or th.pal[p.ci]
 if p.kind == "triangle" then p.o.TextColor3 = col else p.o.BackgroundColor3 = col end
@@ -2751,12 +3465,52 @@ PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 12),
 L.settingsHost = sPage
 local order = 0
 local function nextOrder() order = order + 1 return order end
+L.secs = {}
+local function setSection(sec, collapse)
+sec.collapsed = collapse
+sec.tok = sec.tok + 1
+local tok = sec.tok
+sec.btn.Text = (collapse and "+  " or "-  ") .. sec.label
+local stop = math.huge
+for _, o in ipairs(L.secs) do if o.order > sec.order and o.order < stop then stop = o.order end end
+local info = TweenInfo.new(0.24, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)
+for _, c in ipairs(sPage:GetChildren()) do
+if c:IsA("GuiObject") and c.LayoutOrder > sec.order and c.LayoutOrder < stop then
+if c.AutomaticSize ~= Enum.AutomaticSize.None then
+if collapse then c:SetAttribute("Skip", not c.Visible and true or nil); c.Visible = false
+elseif not c:GetAttribute("Skip") then c.Visible = true end
+elseif collapse and not c.Visible then
+c:SetAttribute("Skip", true)
+elseif collapse then
+c:SetAttribute("Skip", nil)
+c:SetAttribute("H", c.Size.Y.Offset)
+c:SetAttribute("Clip", c.ClipsDescendants)
+c.ClipsDescendants = true
+local tw = TweenService:Create(c, info, {Size = U2(c.Size.X.Scale, c.Size.X.Offset, 0, 0)})
+tw.Completed:Connect(function(st) if st == Enum.PlaybackState.Completed and sec.tok == tok then c.Visible = false end end)
+tw:Play()
+elseif not c:GetAttribute("Skip") then
+local h = c:GetAttribute("H") or c.Size.Y.Offset
+c.Visible = true
+local tw = TweenService:Create(c, info, {Size = U2(c.Size.X.Scale, c.Size.X.Offset, 0, h)})
+tw.Completed:Connect(function(st) if st == Enum.PlaybackState.Completed and sec.tok == tok then c.ClipsDescendants = c:GetAttribute("Clip") == true end end)
+tw:Play()
+end
+end
+end
+end
 local function sectionHeader(txt)
-local l = text(sPage, {
-Size = U2(1, 0, 0, 24), Text = txt:upper(), TextSize = 11, TextColor3 = L.P.muted,
-TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 20, LayoutOrder = nextOrder(),
-})
-new("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingTop = UDim.new(0, 8)}, l)
+local o = nextOrder()
+local b = new("TextButton", {
+Size = U2(1, 0, 0, 26), Text = "-  " .. txt:upper(), TextSize = 11, TextColor3 = L.P.muted, BackgroundTransparency = 1,
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 20, LayoutOrder = o,
+}, sPage)
+new("UIPadding", {PaddingLeft = UDim.new(0, 4), PaddingTop = UDim.new(0, 8)}, b)
+local sec = {btn = b, order = o, label = txt:upper(), collapsed = false, tok = 0}
+L.secs[#L.secs + 1] = sec
+b.MouseEnter:Connect(function() tween(b, FAST, {TextColor3 = WHITE}) end)
+b.MouseLeave:Connect(function() tween(b, FAST, {TextColor3 = L.P.muted}) end)
+b.MouseButton1Click:Connect(function() setSection(sec, not sec.collapsed) end)
 end
 local function makeRow(name, tall)
 local row = new("Frame", {
@@ -2812,13 +3566,13 @@ end
 local function isPress(i) return i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch end
 local cm, ce
 local function stop()
-dragging = false; host.ScrollingEnabled = true
+dragging = false; host.ScrollingEnabled = true; tween(knob, FAST, {Size = UO(12, 12)})
 if cm then cm:Disconnect() cm = nil end
 if ce then ce:Disconnect() ce = nil end
 end
 hit.InputBegan:Connect(function(i)
 if isPress(i) then
-dragging = true; host.ScrollingEnabled = false; fromInput(i)
+dragging = true; host.ScrollingEnabled = false; tween(knob, FAST, {Size = UO(15, 15)}); fromInput(i)
 if cm then cm:Disconnect() end
 if ce then ce:Disconnect() end
 cm = UIS.InputChanged:Connect(function(i2)
@@ -2841,40 +3595,107 @@ AutoButtonColor = false, ZIndex = 20, LayoutOrder = nextOrder(),
 Font = Enum.Font.Nunito, TextSize = 12, Text = label, TextColor3 = WHITE,
 }, sPage)
 round(b, 8)
+L.press(b, 0.98)
 return b
+end
+sectionHeader("Interface")
+do
+local krow = makeRow("Toggle key")
+local kb = new("TextButton", {
+AnchorPoint = V2(1, 0.5), Position = U2(1, -8, 0.5, 0), Size = UO(100, 22), BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0,
+AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 12, Text = S.toggleKey, TextColor3 = WHITE, ZIndex = 21,
+}, krow)
+round(kb, 5)
+L.press(kb, 0.96)
+kb.MouseButton1Click:Connect(function()
+kb.Text = "press a key..."
+L.listenKey = function(code)
+if code == Enum.KeyCode.Escape or code == Enum.KeyCode.Unknown then kb.Text = S.toggleKey return end
+S.toggleKey = code.Name
+kb.Text = S.toggleKey
+scheduleSave()
+notify("Toggle key", "Press " .. code.Name .. " to show or hide the hub", nil, 3)
+end
+end)
+end
+toggleRow("Floating button", "launcher", function() if L.applyLauncher then L.applyLauncher() end end)
+do
+local rb = wideButton("Reset position and size")
+rb.MouseButton1Click:Connect(function() L.resetPos() end)
+local ub = wideButton("Unload hub", RED, 0.2)
+ub.MouseButton1Click:Connect(function()
+askConfirm("Unload the hub completely? Run the script again to bring it back.", function() sg:Destroy() end, "Unload")
+end)
+end
+sectionHeader("Auto-execute")
+toggleRow("Run the auto-execute list when I join", "autoRun", nop)
+sliderRow("Delay before running", "autoDelay", 0, 20, function(v) return math.floor(v + 0.5) .. " s" end, function() scheduleSave() end, 1)
+do
+local autoBox = new("Frame", {LayoutOrder = nextOrder(), Size = U2(1, 0, 0, 0), AutomaticSize = Enum.AutomaticSize.Y, BackgroundTransparency = 1, ZIndex = 20}, sPage)
+new("UIListLayout", {Padding = UDim.new(0, 4), SortOrder = Enum.SortOrder.LayoutOrder}, autoBox)
+function L.autoRender()
+for _, c in ipairs(autoBox:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+if #L.auto.list == 0 then
+text(autoBox, {LayoutOrder = 1, Size = U2(1, 0, 0, 28), Font = Enum.Font.Nunito, Text = "Empty. Open a script with View and press Auto.", TextSize = 11, TextTransparency = 0.3, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 21})
+end
+for i, it in ipairs(L.auto.list) do
+local r = new("Frame", {LayoutOrder = i, Size = U2(1, 0, 0, 32), BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, ZIndex = 21}, autoBox)
+round(r, 6)
+text(r, {Position = UO(10, 0), Size = U2(1, -150, 1, 0), Text = it.name, TextSize = 12, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 22})
+local pl = button(r, 0, 0, 90, 22, it.place and "This game" or "All games", L.P.ctrlHot, 0, 22)
+pl.AnchorPoint, pl.Position, pl.TextSize = V2(1, 0.5), U2(1, -40, 0.5, 0), 11
+fit(pl, 11, 7)
+pl.MouseButton1Click:Connect(function()
+it.place = (not it.place) and game.PlaceId or nil
+L.saveAuto()
+L.autoRender()
+end)
+local rm = button(r, 0, 0, 26, 22, "X", RED, 0.3, 22)
+rm.AnchorPoint, rm.Position = V2(1, 0.5), U2(1, -8, 0.5, 0)
+rm.MouseButton1Click:Connect(function()
+local at = table.find(L.auto.list, it)
+if at then table.remove(L.auto.list, at) end
+L.saveAuto()
+L.autoRender()
+end)
+end
+end
+L.autoRender()
+end
+do
+local rn = wideButton("Run the list now")
+rn.MouseButton1Click:Connect(function() L.autoRunAll(true) end)
 end
 sectionHeader("Appearance")
 do
-local PRESETS = {{0.75, 1}, {0.60, 1}, {0.50, 1}, {0.38, 1}, {0.07, 1}, {0.0, 1}, {0.90, 1}, {0.75, 0.1}}
 local row = makeRow("Theme color", true)
 local holder = new("Frame", {Position = UO(10, 31), Size = U2(1, -20, 0, 24), BackgroundTransparency = 1, ZIndex = 21}, row)
 new("UIGridLayout", {CellSize = UO(20, 20), CellPadding = UO(5, 5)}, holder)
-for _, pr in ipairs(PRESETS) do
-local h, s = pr[1], pr[2]
-local b = new("TextButton", {
-Size = UO(20, 20), Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 22,
-BackgroundColor3 = Color3.fromHSV(h, math.clamp(s * 0.75, 0.08, 1), 0.95),
-}, holder)
-round(b, 12)
+for _, p in ipairs(L.THEMES) do
+local b = new("TextButton", {Size = UO(20, 20), Text = "", AutoButtonColor = false, BorderSizePixel = 0, ZIndex = 22, BackgroundColor3 = WHITE}, holder)
+round(b, 99)
+new("UIGradient", {Color = L.edgeSeq(L.edgeFor(p)), Rotation = 45}, b)
 local st = new("UIStroke", {Thickness = 2, Color = WHITE, Transparency = 1}, b)
+L.press(b, 0.88)
 b.MouseButton1Click:Connect(function()
-S.hue, S.sat = h, s
+S.hue, S.sat, S.val, S.themeName = p.h, p.s, p.v or 1, p.name
 applyTheme(); scheduleSave()
 end)
-refreshers[#refreshers + 1] = function()
-st.Transparency = (math.abs(S.hue - h) < 0.01 and math.abs(S.sat - s) < 0.01) and 0 or 1
+refreshers[#refreshers + 1] = function() st.Transparency = (S.themeName == p.name) and 0 or 1 end
 end
 end
-end
-sliderRow("Custom hue", "hue", 0, 1, function(v) return math.floor(v * 360) .. "°" end, applyTheme, nil, true)
-sliderRow("Color strength", "sat", 0.05, 1, function(v) return math.floor(v * 100 + 0.5) .. "%" end, applyTheme)
+sliderRow("Custom hue", "hue", 0, 1, function(v) return math.floor(v * 360) .. "°" end, function() S.themeName, S.val = "Custom", 1; applyTheme() end, nil, true)
+sliderRow("Color strength", "sat", 0.05, 1, function(v) return math.floor(v * 100 + 0.5) .. "%" end, function() S.themeName, S.val = "Custom", 1; applyTheme() end)
+sliderRow("Border thickness", "edgeW", 1, 12, function(v) return math.floor(v + 0.5) .. " px" end, function() L.applyEdge() end, 1)
+toggleRow("Animated border", "edgeAnim", function() L.applyEdge() end)
+sliderRow("Border speed", "edgeSpeed", 3, 30, function(v) return math.floor(v + 0.5) .. " s" end, function() L.applyEdge() end, 1)
 sliderRow("Window see-through", "winTrans", 0, 0.6, function(v) return math.floor(v / 0.6 * 100 + 0.5) .. "%" end, applyWindow)
 sectionHeader("Background")
 toggleRow("Background image", "bgOn", function() L.applyBg() end)
 sliderRow("Background visibility", "bgVis", 0.05, 0.9, function(v) return math.floor(v * 100 + 0.5) .. "%" end, function() L.applyBg() end)
 do
 local box
-local prow = new("Frame", {Size = U2(1, 0, 0, 34), BackgroundTransparency = 1, ZIndex = 20, LayoutOrder = nextOrder()}, sPage)
+local prow = new("Frame", {Size = U2(1, 0, 0, 68), BackgroundTransparency = 1, ZIndex = 20, LayoutOrder = nextOrder()}, sPage)
 new("UIGridLayout", {CellSize = U2(1 / 3, -4, 0, 30), CellPadding = UO(4, 4), SortOrder = Enum.SortOrder.LayoutOrder}, prow)
 local pbtn = {}
 local function recolor()
@@ -2884,7 +3705,7 @@ b.BackgroundColor3 = on and themeBtn or L.P.ctrl
 b.BackgroundTransparency = 0
 end
 end
-for i = 1, 3 do
+for i = 1, 6 do
 local b = button(prow, 0, 0, 10, 10, "Default " .. i, WHITE, 0.45, 21)
 b.LayoutOrder, b.TextSize = i, 12
 fit(b, 12, 7)
@@ -2966,7 +3787,7 @@ pickGrid(L.fonts, "font", L.applyFont, true)
 sectionHeader("GUI style")
 local names = {}
 for _, st in ipairs(L.styles) do names[#names + 1] = {st.name} end
-pickGrid(names, "style", L.applyStyle, false)
+pickGrid(names, "style", applyAll, false)
 end
 do
 sectionHeader("Teleport and rejoin")
@@ -3524,7 +4345,6 @@ end
 function L.commPush(nm, code, desc, gameName, gameId, kinds)
 local url = L.boardOf()
 if not url then return false end
-if #code > 30000 then notify("Too long", "Shared scripts can be up to 30,000 characters", nil, 3) return true end
 local e = {n = nm, c = code, d = (type(desc) == "string" and desc ~= "") and desc:sub(1, 300) or nil, u = tostring(LP.UserId), a = LP.Name, t = os.time(), tries = 1,
 g = gameName, gi = gameId, k = kinds}
 table.insert(L.pending, e)
@@ -4750,15 +5570,225 @@ if type(w) ~= "number" or w <= 0 then return end
 local cols = math.clamp(math.floor((w - 20) / 80), 2, 4)
 for i = #L.grids, 1, -1 do
 local g = L.grids[i]
-if g.Parent then g.CellSize = U2(1 / cols, -(cols * 8 + 12) / cols, 0, L.cellH[g] or 100) else table.remove(L.grids, i) end
+if g.Parent then
+local c = cols
+if L.listGrids[g] then c = (w >= 800) and 2 or 1 end
+g.CellSize = U2(1 / c, -(c * 8 + 12) / c, 0, L.cellH[g] or 100)
+else table.remove(L.grids, i) end
 end
 end
 content:GetPropertyChangedSignal("AbsoluteSize"):Connect(L.relayout)
 content:GetPropertyChangedSignal("AbsoluteSize"):Connect(L.fitAll)
 L.relayout()
 L.fitAll()
+function L.clampPos(pos)
+local vp, ab = sg.AbsoluteSize, win.AbsoluteSize
+if vp.X <= 0 or vp.Y <= 0 or ab.X <= 0 then return pos end
+local cx = pos.X.Scale * vp.X + pos.X.Offset
+local cy = pos.Y.Scale * vp.Y + pos.Y.Offset
+local hw, hh = ab.X / 2, ab.Y / 2
+local nx = (hw * 2 >= vp.X) and vp.X / 2 or math.clamp(cx, hw, vp.X - hw)
+local ny = (hh * 2 >= vp.Y) and vp.Y / 2 or math.clamp(cy, hh, vp.Y - hh)
+return U2(pos.X.Scale, pos.X.Offset + (nx - cx), pos.Y.Scale, pos.Y.Offset + (ny - cy))
+end
+do
+local winTw
+local function playWin(props, info, done)
+if winTw then winTw:Cancel() end
+local tw = TweenService:Create(win, info, props)
+winTw = tw
+tw.Completed:Connect(function(st) if st == Enum.PlaybackState.Completed and done then done() end end)
+tw:Play()
+end
+function L.snapWin()
+if winTw then winTw:Cancel(); winTw = nil end
+if L.winHome then win.Position = L.winHome; L.winHome = nil end
+L.winTok = (L.winTok or 0) + 1
+end
+function L.clampWin(animate)
+local p = L.clampPos(win.Position)
+if p == win.Position then return end
+if animate then playWin({Position = p}, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out)) else win.Position = p end
+end
+function L.showWin()
+L.snapWin()
+local tok = L.winTok
+local home = L.clampPos(win.Position)
+L.winHome = home
+win.Position = home + UO(0, 20)
+sg.Enabled = true
+playWin({Position = home}, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), function()
+if L.winTok == tok then L.winHome = nil end
+end)
+if L.launcherSync then L.launcherSync() end
+end
+function L.hideWin()
+if not sg.Enabled then return end
+L.snapWin()
+local tok = L.winTok
+local home = win.Position
+L.winHome = home
+playWin({Position = home + UO(0, 14)}, TweenInfo.new(0.16, Enum.EasingStyle.Quad, Enum.EasingDirection.In), function()
+if L.winTok ~= tok then return end
+sg.Enabled = false
+win.Position = home
+L.winHome = nil
+if L.launcherSync then L.launcherSync() end
+end)
+end
+function L.toggleWin(force)
+local want = force
+if want == nil then want = not sg.Enabled end
+if want then
+if sg.Enabled and minimized then L.setMinimized(false) elseif not sg.Enabled then L.showWin() else L.clampWin(true) end
+else
+L.hideWin()
+end
+end
+function L.resetPos()
+L.snapWin()
+if minimized then L.setMinimized(false) end
+L.setSize(S.winW, S.winH)
+win.Position = U2(0.5, 0, 0.5, 0)
+sg.Enabled = false
+L.showWin()
+S.launcher, S.launX, S.launY = true, 0.97, 0.5
+if L.applyLauncher then L.applyLauncher(true) end
+scheduleSave()
+notify("Position reset", "The hub is back in the center of the screen", nil, 3)
+end
+end
+-- floating launcher: lives in its own ScreenGui so it survives closing the hub window
+do
+local old = findGui("DuaKNoLauncher")
+if old then pcall(function() old:Destroy() end) end
+local tg = new("ScreenGui", {Name = "DuaKNoLauncher", ResetOnSpawn = false, IgnoreGuiInset = true, DisplayOrder = 30})
+mountGui(tg)
+sg.Destroying:Connect(function() pcall(function() tg:Destroy() end) end)
+local lb = new("TextButton", {
+Name = "Launcher", AnchorPoint = V2(0.5, 0.5), Size = UO(40, 40), BackgroundColor3 = L.P.card, BorderSizePixel = 0,
+AutoButtonColor = false, Text = "", ZIndex = 5,
+}, tg)
+round(lb, 10)
+local lst = outline(lb, 1.25, 0.2)
+local lImg = new("ImageLabel", {AnchorPoint = V2(0.5, 0.5), Position = UDim2.fromScale(0.5, 0.5), Size = UO(26, 26), BackgroundTransparency = 1, ScaleType = Enum.ScaleType.Fit, ImageTransparency = 1, ZIndex = 6}, lb)
+local lTxt = text(lb, {Size = UDim2.fromScale(1, 1), Text = "D", TextSize = 18, ZIndex = 6})
+L.press(lb, 0.92)
+task.spawn(function()
+local t0 = os.clock()
+while os.clock() - t0 < 20 and lb.Parent do
+if L.iconOK and L.miniImg.Image ~= "" then
+lImg.Image = L.miniImg.Image
+lImg.ImageTransparency = 0
+lTxt.Visible = false
+return
+end
+task.wait(0.5)
+end
+end)
+local function place(animate)
+local vp = tg.AbsoluteSize
+if vp.X <= 0 or vp.Y <= 0 then return end
+local x = math.clamp(math.clamp(S.launX, 0, 1) * vp.X, 24, math.max(24, vp.X - 24))
+local y = math.clamp(math.clamp(S.launY, 0, 1) * vp.Y, 24, math.max(24, vp.Y - 24))
+if animate then tween(lb, TweenInfo.new(0.25, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Position = UO(x, y)}) else lb.Position = UO(x, y) end
+end
+function L.launcherSync()
+local open = sg.Enabled
+tween(lb, FAST, {BackgroundTransparency = open and 0.45 or 0})
+tween(lst, FAST, {Transparency = open and 0.5 or 0.1})
+end
+function L.applyLauncher(animate)
+tg.Enabled = S.launcher
+place(animate)
+L.launcherSync()
+end
+local down, moved, startPos, startAbs, mv, tok = false, false, nil, nil, nil, 0
+lb.MouseEnter:Connect(function() tween(lst, FAST, {Transparency = 0}) end)
+lb.MouseLeave:Connect(function() L.launcherSync() end)
+lb.InputBegan:Connect(function(i)
+local t = i.UserInputType
+if t == Enum.UserInputType.MouseButton2 then L.resetPos() return end
+if t ~= Enum.UserInputType.MouseButton1 and t ~= Enum.UserInputType.Touch then return end
+down, moved = true, false
+tok = tok + 1
+local my = tok
+startPos = i.Position
+startAbs = lb.AbsolutePosition + lb.AbsoluteSize / 2
+if mv then mv:Disconnect() end
+mv = UIS.InputChanged:Connect(function(i2)
+if not down then return end
+if i2.UserInputType ~= Enum.UserInputType.MouseMovement and i2.UserInputType ~= Enum.UserInputType.Touch then return end
+local d = i2.Position - startPos
+if not moved and (math.abs(d.X) > 6 or math.abs(d.Y) > 6) then moved = true end
+if moved then
+local vp = tg.AbsoluteSize
+lb.Position = UO(math.clamp(startAbs.X + d.X, 24, math.max(24, vp.X - 24)), math.clamp(startAbs.Y + d.Y, 24, math.max(24, vp.Y - 24)))
+end
+end)
+task.delay(0.8, function()
+if down and not moved and tok == my then
+down = false
+L.resetPos()
+end
+end)
+i.Changed:Connect(function()
+if i.UserInputState ~= Enum.UserInputState.End or not down then return end
+down = false
+if mv then mv:Disconnect() mv = nil end
+local vp = tg.AbsoluteSize
+if moved then
+local c = lb.AbsolutePosition + lb.AbsoluteSize / 2
+S.launX = (c.X < vp.X / 2 and 28 or vp.X - 28) / math.max(vp.X, 1)
+S.launY = c.Y / math.max(vp.Y, 1)
+scheduleSave()
+place(true)
+else
+L.toggleWin()
+end
+end)
+end)
+tg:GetPropertyChangedSignal("AbsoluteSize"):Connect(function()
+place(false)
+if L.clampWin then L.clampWin(true) end
+end)
+L.applyLauncher(false)
+end
 UIS.InputBegan:Connect(function(i, gp)
-if not gp and sg.Parent and i.KeyCode == Enum.KeyCode.RightControl then sg.Enabled = not sg.Enabled end
+if not sg.Parent then return end
+if L.listenKey then
+if i.UserInputType == Enum.UserInputType.Keyboard then
+local cb = L.listenKey
+L.listenKey = nil
+cb(i.KeyCode)
+end
+return
+end
+if gp then return end
+if i.UserInputType == Enum.UserInputType.Keyboard and (i.KeyCode.Name == S.toggleKey or i.KeyCode == Enum.KeyCode.RightControl) then L.toggleWin() end
+end)
+-- loading bar for the network calls the hub makes
+for _, k in ipairs({"sbFetch", "boardFetch", "commPull", "bRead", "bWrite"}) do
+local f = L[k]
+if type(f) == "function" then
+L[k] = function(...)
+L.busy(1)
+local r = table.pack(pcall(f, ...))
+L.busy(-1)
+if not r[1] then error(r[2], 0) end
+return table.unpack(r, 2, r.n)
+end
+end
+end
+L.showWin()
+if not S.autoClose then setOpen(true) end
+task.spawn(function()
+if not S.autoRun or #L.auto.list == 0 then return end
+local genv = typeof(getgenv) == "function" and getgenv() or _G
+if game.JobId ~= "" and genv.DuaAutoJob == game.JobId then return end
+genv.DuaAutoJob = game.JobId
+task.wait(math.max(0, tonumber(S.autoDelay) or 0))
+if sg.Parent then L.autoRunAll(false) end
 end)
 do
 local qot = (typeof(queue_on_teleport) == "function" and queue_on_teleport)
@@ -4821,13 +5851,13 @@ end)
 return img
 end
 M.mail = new("TextButton", {
-AnchorPoint = V2(1, 0.5), Position = U2(1, -60, 0.5, 0), Size = UO(42, 28), BackgroundColor3 = L.P.ctrl,
+AnchorPoint = V2(1, 0.5), Position = U2(1, -60, 0.5, 0), Size = UO(34, 24), BackgroundColor3 = L.P.ctrl,
 BorderSizePixel = 0, AutoButtonColor = false, Text = "", ZIndex = 5,
 }, bar)
 round(M.mail, 6)
-L.decal(M.mail, DECAL_MAIL, 30)
+L.decal(M.mail, DECAL_MAIL, 22)
 M.dot = new("TextLabel", {
-AnchorPoint = V2(1, 0), Position = U2(1, 4, 0, -4), Size = UO(15, 15), BackgroundColor3 = RED, BorderSizePixel = 0,
+AnchorPoint = V2(1, 0), Position = U2(1, -1, 0, 1), Size = UO(14, 14), BackgroundColor3 = RED, BorderSizePixel = 0,
 Text = "", TextColor3 = WHITE, TextSize = 10, Font = Enum.Font.Nunito, Visible = false, ZIndex = 8,
 }, M.mail)
 round(M.dot, 8)
@@ -4841,11 +5871,11 @@ notify("Join our Discord", "discord.gg/empgqd5qpq", nil, 5)
 end
 end
 M.disc = new("TextButton", {
-AnchorPoint = V2(1, 0.5), Position = U2(1, -108, 0.5, 0), Size = UO(42, 28), BackgroundColor3 = Color3.fromRGB(78, 80, 88),
+AnchorPoint = V2(1, 0.5), Position = U2(1, -100, 0.5, 0), Size = UO(34, 24), BackgroundColor3 = L.P.ctrl,
 BorderSizePixel = 0, AutoButtonColor = false, Text = "", ZIndex = 5,
 }, bar)
 round(M.disc, 6)
-L.decal(M.disc, DECAL_DISCORD, 30)
+L.decal(M.disc, DECAL_DISCORD, 22)
 L.disc = M.disc
 M.disc.MouseButton1Click:Connect(function()
 if L.moved then L.moved = false return end
@@ -5163,13 +6193,14 @@ end
 handle.InputBegan:Connect(function(i)
 if (i.UserInputType == Enum.UserInputType.MouseButton1 or i.UserInputType == Enum.UserInputType.Touch) and canStart(i) then
 dragging, L.moved = not S.lockDrag, false
+if L.snapWin then L.snapWin() end
 dStart, sPos = i.Position, win.Position
 if mv then mv:Disconnect() end
 mv = UIS.InputChanged:Connect(function(i2)
 if i2 == dInput and dragging then
 local d = i2.Position - dStart
 if math.abs(d.X) > 4 or math.abs(d.Y) > 4 then L.moved = true end
-win.Position = U2(sPos.X.Scale, sPos.X.Offset + d.X, sPos.Y.Scale, sPos.Y.Offset + d.Y)
+win.Position = L.clampPos(U2(sPos.X.Scale, sPos.X.Offset + d.X, sPos.Y.Scale, sPos.Y.Offset + d.Y))
 end
 end)
 i.Changed:Connect(function()
@@ -5208,7 +6239,7 @@ rMove = UIS.InputChanged:Connect(function(i2)
 if sizing and i2 == rInput and not minimized then
 local d = i2.Position - rStart
 local w, h = L.setSize(rSize.X + d.X, rSize.Y + d.Y)
-win.Position = U2(rPos.X.Scale, rPos.X.Offset + (w - rSize.X) / 2, rPos.Y.Scale, rPos.Y.Offset + (h - rSize.Y) / 2)
+win.Position = L.clampPos(U2(rPos.X.Scale, rPos.X.Offset + (w - rSize.X) / 2, rPos.Y.Scale, rPos.Y.Offset + (h - rSize.Y) / 2))
 end
 end)
 i.Changed:Connect(function()
@@ -5230,24 +6261,22 @@ AnchorPoint = V2(1, 0.5), Position = U2(1, -34, 0.5, 0), Size = UO(22, 22), Back
 Font = Enum.Font.Nunito, TextSize = 13, Text = "X", TextColor3 = WHITE, AutoButtonColor = false, ZIndex = 5,
 }, bar)
 round(L.closeBtn, 6)
+L.press(L.closeBtn, 0.9)
 L.closeBtn.MouseEnter:Connect(function() tween(L.closeBtn, FAST, {BackgroundColor3 = RED}) end)
 L.closeBtn.MouseLeave:Connect(function() tween(L.closeBtn, FAST, {BackgroundColor3 = L.P.ctrl}) end)
-L.closeBtn.MouseButton1Click:Connect(function()
-askConfirm("Are you sure you want to close the Hub?", function() sg:Destroy() end, "Confirm")
-end)
-minBtn.MouseButton1Click:Connect(function()
-if L.moved then L.moved = false return end
-minimized = not minimized
-tween(win, TweenInfo.new(0.25, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-Size = minimized and UO(32, 32) or SIZE,
-})
+L.closeBtn.MouseButton1Click:Connect(function() L.hideWin() end)
+function L.setMinimized(state)
+if state == minimized then return end
+L.minTok = (L.minTok or 0) + 1
+local tok = L.minTok
+minimized = state
+local function swap()
 local show = not minimized
 content.Visible, layer.Visible, sidebar.Visible = show, show, show
 title.Visible, accent.Visible, mask.Visible = show, show, show
 L.mail.Visible = show
 L.disc.Visible = show
 L.closeBtn.Visible = show
-if minimized then modal.Visible, confirm.Visible, viewer.Visible = false, false, false; L.hideMail() end
 minBtn.AnchorPoint = minimized and V2(0.5, 0.5) or V2(1, 0.5)
 minBtn.Position = minimized and UO(16, 16) or U2(1, -8, 0.5, 0)
 minBtn.Size = minimized and UO(32, 32) or UO(22, 22)
@@ -5259,7 +6288,136 @@ L.grip.Visible = not minimized
 inner.Visible = not minimized
 L.miniImg.Visible = minimized and L.iconOK == true
 minBtn.Text = minimized and (L.iconOK and "" or "+") or "-"
+if L.busyUpdate then L.busyUpdate() end
+end
+if minimized then
+modal.Visible, confirm.Visible, viewer.Visible = false, false, false
+L.hideMail()
+local tw = TweenService:Create(win, TweenInfo.new(0.28, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = UO(32, 32)})
+tw.Completed:Connect(function(st)
+if st == Enum.PlaybackState.Completed and L.minTok == tok then swap(); if L.clampWin then L.clampWin(true) end end
 end)
+tw:Play()
+else
+swap()
+local tw = TweenService:Create(win, TweenInfo.new(0.3, Enum.EasingStyle.Quint, Enum.EasingDirection.Out), {Size = SIZE})
+tw.Completed:Connect(function(st)
+if st == Enum.PlaybackState.Completed and L.minTok == tok and L.clampWin then L.clampWin(true) end
+end)
+tw:Play()
+end
+end
+minBtn.MouseButton1Click:Connect(function()
+if L.moved then L.moved = false return end
+L.setMinimized(not minimized)
+end)
+
+-- Updates page: newest scripts added to Dua's Script sections and to Completed requests
+do
+local host = pages["Updates"]
+if host then
+local scroll = new("ScrollingFrame", {
+Position = UO(10, 50), Size = U2(1, -20, 1, -58), BackgroundTransparency = 1, BorderSizePixel = 0, ScrollBarThickness = 3,
+ScrollBarImageColor3 = WHITE, ZIndex = 21, CanvasSize = UDim2.new(), AutomaticCanvasSize = Enum.AutomaticSize.Y,
+}, host)
+new("UIListLayout", {Padding = UDim.new(0, 6), SortOrder = Enum.SortOrder.LayoutOrder}, scroll)
+new("UIPadding", {PaddingTop = UDim.new(0, 4), PaddingBottom = UDim.new(0, 8), PaddingRight = UDim.new(0, 10)}, scroll)
+function L.updFeed()
+local items, idx = {}, {}
+for _, sec in ipairs(SECTIONS) do
+for _, e in ipairs(adminPages[sec.name] or {}) do
+local t = tonumber(e.t)
+if t then
+local k = e.name .. "\0" .. L.ckey(e.code)
+local it = idx[k]
+if not it then it = {e = e, t = t, where = {}}; idx[k] = it; items[#items + 1] = it end
+it.where[#it.where + 1] = sec.name
+if t > it.t then it.t = t end
+end
+end
+end
+local R = L.csrR
+if R and R.list then
+for _, e in ipairs(R.list) do
+local t = tonumber(e.t)
+if t then items[#items + 1] = {e = e, t = t, where = {"Completed request"}, done = true} end
+end
+end
+table.sort(items, function(a, b) return a.t > b.t end)
+return items
+end
+function L.refreshUpdates()
+for _, c in ipairs(scroll:GetChildren()) do if c:IsA("GuiObject") then c:Destroy() end end
+local feed = L.updFeed()
+local seen = tonumber(S.updSeen) or 0
+local lo, lastBucket = 0, nil
+if #feed == 0 then
+text(scroll, {Size = U2(1, 0, 0, 40), Font = Enum.Font.Nunito, Text = "Nothing yet. New scripts added to Dua's Script or Completed script request show up here.", TextSize = 12, TextTransparency = 0.3, TextWrapped = true, ZIndex = 22})
+end
+for i = 1, math.min(#feed, 40) do
+local it = feed[i]
+local age = os.time() - it.t
+local bucket = age < 86400 and "Today" or (age < 172800 and "Yesterday" or (age < 604800 and "This week" or "Earlier"))
+if bucket ~= lastBucket then
+lastBucket = bucket
+lo = lo + 1
+text(scroll, {LayoutOrder = lo, Size = U2(1, 0, 0, 18), Font = Enum.Font.Nunito, Text = bucket:upper(), TextSize = 10, TextColor3 = L.P.muted, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left, ZIndex = 22})
+end
+lo = lo + 1
+local row = new("Frame", {LayoutOrder = lo, Size = U2(1, 0, 0, 56), BackgroundColor3 = L.P.card, BorderSizePixel = 0, ZIndex = 21}, scroll)
+round(row, 8)
+local rs = new("UIStroke", {Thickness = 1 * (L.ss or 1), Color = L.P.line, Transparency = 0.35, ApplyStrokeMode = Enum.ApplyStrokeMode.Border}, row)
+L.strokes[rs] = 1
+local badge = new("Frame", {AnchorPoint = V2(0, 0.5), Position = U2(0, 11, 0.5, 0), Size = UO(34, 34), BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, ZIndex = 22}, row)
+round(badge, 8)
+if not L.kindBadgeInto(badge, it.e.kinds, 34) then
+local ic = L.icon(badge, it.done and 1 or 0, 22, {AnchorPoint = V2(0.5, 0.5), Position = U2(0.5, 0, 0.5, 0)})
+if not ic then
+text(badge, {Size = U2(1, 0, 1, 0), Text = tostring(it.e.name):sub(1, 1):upper(), TextSize = 16, ZIndex = 23})
+end
+end
+if it.t > seen then
+local dot = new("Frame", {Position = UO(-2, -2), Size = UO(9, 9), BackgroundColor3 = RED, BorderSizePixel = 0, ZIndex = 25}, badge)
+round(dot, 99)
+end
+text(row, {Position = UO(56, 9), Size = U2(1, -140, 0, 18), Text = it.e.name, TextSize = 13, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 22})
+local where = it.done and "Completed request" or ("Added to " .. table.concat(it.where, ", "))
+text(row, {Position = UO(56, 29), Size = U2(1, -140, 0, 14), Font = Enum.Font.Nunito, Text = where .. "  -  " .. L.ago(it.t), TextSize = 11, TextColor3 = L.P.muted, TextTransparency = 0, TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEnd, ZIndex = 22})
+local run = new("TextButton", {AnchorPoint = V2(1, 0.5), Position = U2(1, -10, 0.5, 0), Size = UO(54, 28), BackgroundColor3 = L.P.btn, BorderSizePixel = 0, AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 12, Text = "Run", TextColor3 = WHITE, ZIndex = 23}, row)
+round(run, 7)
+L.press(run, 0.93)
+local view = new("TextButton", {AnchorPoint = V2(1, 0.5), Position = U2(1, -70, 0.5, 0), Size = UO(50, 28), BackgroundColor3 = L.P.ctrl, BorderSizePixel = 0, AutoButtonColor = false, Font = Enum.Font.Nunito, TextSize = 12, Text = "View", TextColor3 = WHITE, ZIndex = 23}, row)
+round(view, 7)
+L.press(view, 0.93)
+local e = it.e
+run.MouseButton1Click:Connect(function() runScript(e) end)
+view.MouseButton1Click:Connect(function() openViewer(e) end)
+end
+end
+function L.updDot()
+local row = rows["Updates"]
+if not row then return end
+local dot = row:FindFirstChild("UpdDot")
+if not dot then
+dot = new("Frame", {Name = "UpdDot", Position = UO(26, 5), Size = UO(8, 8), BackgroundColor3 = RED, BorderSizePixel = 0, Visible = false, ZIndex = 12}, row)
+round(dot, 99)
+end
+local newest = 0
+for _, it in ipairs(L.updFeed()) do if it.t > newest then newest = it.t end end
+dot.Visible = newest > (tonumber(S.updSeen) or 0)
+end
+task.delay(4, function() pcall(L.updDot) end)
+task.spawn(function()
+while sg.Parent do
+task.wait(20)
+pcall(function()
+L.updDot()
+if host.Visible then L.refreshUpdates() end
+end)
+end
+end)
+end
+end
 -- Completed script request page
 -- Everyone can see the finished scripts. Only admins/owner can add or delete them.
 do
@@ -5268,9 +6426,10 @@ local CSR = "Completed script request"
 -- PASTE YOUR NEW npoint.io LINK HERE, e.g. "https://api.npoint.io/xxxxxxxxxxxxxxxxxxxx"
 L.COMPLETED_BOARD = "https://api.npoint.io/045e748727605bd85fd9"
 local host = pages[CSR]
-local MAXLIST, MAXCODE = 100, 30000
+local MAXLIST, MAXCODE = 100, math.huge
 local GREEN = L.P.btn
 local R = {list = {}, busy = false, busyAt = 0, saving = false, at = nil, err = nil}
+L.csrR = R
 local function boardUrl()
 local u = L.COMPLETED_BOARD
 if type(u) == "string" and u:match("^https://api%.npoint%.io/[%w]+$") then return u end
@@ -5552,6 +6711,7 @@ TextXAlignment = Enum.TextXAlignment.Left, TextTruncate = Enum.TextTruncate.AtEn
 }, holder)
 round(b, 6)
 new("UIPadding", {PaddingLeft = UDim.new(0, 8), PaddingRight = UDim.new(0, 6)}, b)
+L.popIn(b)
 b.MouseButton1Click:Connect(function()
 local it = data[i]
 if it and it.name then onPick(it) end
@@ -7391,7 +8551,7 @@ end)
 end
 end)()
 end
-selectItem(ITEMS[1].name)
+selectItem(L.DUA)
 playSound(SND.click)
 if not isAdmin and feedUrl ~= "" then
 task.spawn(function()
